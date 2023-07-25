@@ -6,7 +6,6 @@
       </q-card-section>
     </q-card>
     <div v-for="cart in carts" :key="cart.id">
-
       <q-card bordered class="q-mb-md">
         <q-item>
           <q-item-section avatar>
@@ -23,7 +22,13 @@
               </strong>
             </q-item-label>
             <q-item-label caption>
-              By <span class="ellipsis-2-lines text-wrap" v-text="cart.merchant?.profile?.name || cart.merchant?.publicKey"></span>
+              By
+              <span
+                class="ellipsis-2-lines text-wrap"
+                v-text="
+                  cart.merchant?.profile?.name || cart.merchant?.publicKey
+                "
+              ></span>
             </q-item-label>
           </q-item-section>
           <q-item-section side>
@@ -38,11 +43,9 @@
         <q-separator />
 
         <q-card-section horizontal>
-
           <q-card-section class="col-12">
             <q-list class="q-mt-md">
               <q-item v-for="product in cart.products" :key="product.id">
-
                 <q-item-section avatar>
                   <q-avatar>
                     <img v-if="product.images[0] || product.image" :src="product.images[0] || product.image" />
@@ -58,80 +61,99 @@
                   </q-item-label>
                 </q-item-section>
                 <q-item-section class="q-mt-sm gt-sm">
-                  <q-item-label><strong>{{ formatCurrency(product.price, product.currency) }}</strong></q-item-label>
+                  <q-item-label
+                    ><strong>{{
+                      formatCurrency(product.price, product.currency)
+                    }}</strong></q-item-label
+                  >
                   <q-item-label></q-item-label>
                 </q-item-section>
 
                 <q-item-section class="q-ma-sm">
-                  <q-input v-model.number="product.orderedQuantity" @change="quantityChanged(product)" type="number"
-                    rounded outlined min="1" :max="product.quantity"></q-input>
+                  <q-input
+                    v-model.number="product.orderedQuantity"
+                    @change="quantityChanged(product)"
+                    type="number"
+                    rounded
+                    outlined
+                    min="1"
+                    :max="product.quantity"
+                  ></q-input>
                 </q-item-section>
 
                 <q-item-section>
-                  <q-item-label><strong>{{ formatCurrency(product.price * product.orderedQuantity, product.currency) }}
-                    </strong></q-item-label>
+                  <q-item-label
+                    ><strong
+                      >{{
+                        formatCurrency(
+                          product.price * product.orderedQuantity,
+                          product.currency
+                        )
+                      }}
+                    </strong></q-item-label
+                  >
                 </q-item-section>
                 <q-item-section side>
                   <div>
-                    <q-btn flat dense round icon="delete" @click="removeProduct(product.stall_id, product.id)" />
+                    <q-btn
+                      flat
+                      dense
+                      round
+                      icon="delete"
+                      @click="removeProduct(product.stall_id, product.id)"
+                    />
                   </div>
                 </q-item-section>
-
               </q-item>
-
             </q-list>
           </q-card-section>
         </q-card-section>
         <q-separator />
 
-
         <q-card-actions align="right">
-
-          Total: <strong class="q-ma-md"> {{ cartTotalFormatted(cart) }} </strong>
+          Total:
+          <strong class="q-ma-md"> {{ cartTotalFormatted(cart) }} </strong>
           <q-btn @click="proceedToCheckout(cart)" flat color="primary">
             Proceed to Checkout
           </q-btn>
         </q-card-actions>
       </q-card>
-
     </div>
-
   </div>
 </template>
 
 <script>
-import { defineComponent } from 'vue'
+import { defineComponent } from "vue";
 
 export default defineComponent({
-  name: 'ShoppingCartList',
-  props: ['carts'],
+  name: "ShoppingCartList",
+  props: ["carts"],
   data: function () {
-    return {}
+    return {};
   },
   computed: {},
   methods: {
     formatCurrency: function (value, unit) {
-      return formatCurrency(value, unit)
+      return formatCurrency(value, unit);
     },
     cartTotalFormatted(cart) {
-      if (!cart.products?.length) return ""
-      const total = cart.products.reduce((t, p) => p.price + t, 0)
-      return formatCurrency(total, cart.products[0].currency)
+      if (!cart.products?.length) return "";
+      const total = cart.products.reduce((t, p) => p.price + t, 0);
+      return formatCurrency(total, cart.products[0].currency);
     },
     removeProduct: function (stallId, productId) {
-      this.$emit('remove-from-cart', { stallId, productId })
+      this.$emit("remove-from-cart", { stallId, productId });
     },
     removeCart: function (stallId) {
-      this.$emit('remove-cart', stallId)
+      this.$emit("remove-cart", stallId);
     },
     quantityChanged: function (product) {
-      this.$emit('add-to-cart', product)
+      this.$emit("add-to-cart", product);
     },
     proceedToCheckout: function (cart) {
-      this.$emit('checkout-cart', cart)
-    }
+      this.$emit("checkout-cart", cart);
+    },
   },
-  created() { }
-
-})
+  created() {},
+});
 </script>
