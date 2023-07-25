@@ -689,7 +689,8 @@ export default defineComponent({
         this.addMerchants(market.opts?.merchants);
         this.applyUiConfigs(market?.opts);
 
-        this.markets.push(market)
+        this.markets = this.markets.filter(m => (m.d !== market.d) && (m.pubkey !== market.pubkey))
+        this.markets.unshift(market)
         this.$q.localStorage.set('nostrmarket.markets', this.markets);
       } catch (error) {
         console.warn(error);
