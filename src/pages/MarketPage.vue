@@ -488,7 +488,7 @@ export default defineComponent({
 
       // trigger the `watch` logic
       this.config = { ...this.config, opts: { ...this.config.opts, ...uiConfig } };
-      this.applyUiConfigs(this.config?.opts);
+      this.applyUiConfigs(this.config.opts);
 
       const prefix = "nostrmarket.orders.";
       const orderKeys = this.$q.localStorage
@@ -506,12 +506,13 @@ export default defineComponent({
       this.readNotes = { ...this.readNotes, ...readNotes };
     },
     applyUiConfigs(opts = {}) {
+      console.log('### applyUiConfigs', opts)
       const { name, about, ui } = opts;
       this.$q.localStorage.set("nostrmarket.marketplaceConfig", { name, about, ui });
-      if (opts.ui?.theme) {
-        document.body.setAttribute("data-theme", opts.ui.theme);
+      if (ui?.theme) {
+        document.body.setAttribute("data-theme", ui.theme);
       }
-      this.$q.dark.set(!!opts.ui?.darkMode);
+      this.$q.dark.set(!!ui?.darkMode);
     },
 
     async createAccount(useExtension = false) {
@@ -663,33 +664,33 @@ export default defineComponent({
       try {
         const { type, data } = NostrTools.nip19.decode(naddr);
         if (type !== "naddr" || data.kind !== 30019) return; // just double check
-        this.config = {
+
+        let market = {
           d: data.identifier,
           pubkey: data.pubkey,
           relays: data.relays,
         };
-      } catch (err) {
-        console.error(err);
-        return;
-      }
 
-      try {
         // add relays to the set
         const pool = new NostrTools.SimplePool();
-        this.config.relays.forEach((r) => this.relays.add(r));
-        const event = await pool.get(this.config.relays, {
+        market.relays.forEach((r) => this.relays.add(r));
+        const event = await pool.get(market.relays, {
           kinds: [30019],
           limit: 1,
-          authors: [this.config.pubkey],
-          "#d": [this.config.d],
+          authors: [market.pubkey],
+          "#d": [market.d],
         });
 
         if (!event) return;
 
-        this.config = { ...this.config, opts: JSON.parse(event.content) };
+        market.opts = JSON.parse(event.content);
+        this.config = { ...this.config, opts: market.opts }
 
-        this.addMerchants(this.config.opts?.merchants);
-        this.applyUiConfigs(this.config?.opts);
+        this.addMerchants(market.opts?.merchants);
+        this.applyUiConfigs(market?.opts);
+
+        this.markets.push(market)
+        this.$q.localStorage.set('nostrmarket.markets', this.markets);
       } catch (error) {
         console.warn(error);
       }
