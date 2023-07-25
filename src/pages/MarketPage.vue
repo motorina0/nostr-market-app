@@ -163,7 +163,7 @@
                 class="q-ml-sm"
               ></span>
             </q-btn>
-            <q-btn-dropdown flat class="q-pa-xs">
+            <q-btn-dropdown flat class="q-pl-xs">
               <q-list>
                 <q-item clickable v-close-popup>
                   <q-item-section>
