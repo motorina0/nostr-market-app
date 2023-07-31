@@ -199,7 +199,7 @@
                     </q-item-label>
                   </q-item-section>
                   <q-item-section side top>
-                    <q-btn color="secondary" flat icon="settings" />
+                    <q-btn color="secondary" flat icon="settings" @click="showMarketConfig(index)" />
                   </q-item-section>
                 </q-item> </q-list
             ></q-btn-dropdown>
@@ -269,13 +269,13 @@
     <market-config
       v-if="activePage === 'market-config'"
       :merchants="merchants"
-      @add-merchant="addMerchant"
-      @remove-merchant="removeMerchant"
       :relays="relays"
       :read-notes="readNotes"
+      :config-ui="config?.opts"
+      @add-merchant="addMerchant"
+      @remove-merchant="removeMerchant"
       @add-relay="addRelay"
       @remove-relay="removeRelay"
-      :config-ui="config?.opts"
       @ui-config-update="updateUiConfig"
       @publish-naddr="publishNaddr"
       @clear-all-data="clearAllData"
@@ -555,6 +555,7 @@ export default defineComponent({
 
       searchText: null,
 
+      activeMarket: null,
       activeStall: null,
       activeProduct: null,
       pool: null,
@@ -655,6 +656,7 @@ export default defineComponent({
       );
     },
     marketsName() {
+      if (this.activeMarket) return this.activeMarket.opts?.name || "Market";
       const selectedMarkets = this.markets.filter((m) => m.selected);
       if (selectedMarkets.length === 0) return "No Market";
       if (selectedMarkets.length === 1)
@@ -1525,6 +1527,10 @@ export default defineComponent({
       this.markets.forEach((m) => (m.selected = this.allMarketsSelected));
       this.$q.localStorage.set("nostrmarket.markets", this.markets);
     },
+    showMarketConfig(index){
+      this.activeMarket = this.markets[index]
+      this.setActivePage('market-config')
+    }
   },
 });
 </script>
