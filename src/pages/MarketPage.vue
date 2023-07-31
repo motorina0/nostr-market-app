@@ -36,7 +36,7 @@
             icon="travel_explore"
             flat
             size="lg"
-            @click="setActivePage('search-nostr')"
+            @click="navigateTo('search-nostr')"
             ><q-tooltip>Search for products on Nostr</q-tooltip></q-btn
           >
           <!-- <q-btn
@@ -49,7 +49,7 @@
           > -->
           <q-btn
             v-if="account"
-            @click="setActivePage('user-config')"
+            @click="navigateTo('user-config')"
             color="gray"
             icon="perm_identity"
             flat
@@ -66,7 +66,7 @@
             ><q-tooltip>User Login</q-tooltip></q-btn
           >
           <q-btn
-            @click="setActivePage('user-chat')"
+            @click="navigateTo('user-chat')"
             color="gray"
             icon="chat"
             flat
@@ -74,7 +74,7 @@
             ><q-tooltip>Chat</q-tooltip></q-btn
           >
           <q-btn
-            @click="setActivePage('customer-orders')"
+            @click="navigateTo('customer-orders')"
             color="gray"
             icon="receipt_long"
             flat
@@ -88,7 +88,7 @@
             round
             flat
             size="lg"
-            @click="setActivePage('shopping-cart-list')"
+            @click="navigateTo('shopping-cart-list')"
           >
             <q-tooltip>Shopping Cart</q-tooltip>
 
@@ -502,6 +502,7 @@ window.$q = useQuasar();
 <script>
 import { defineComponent } from "vue";
 import VueQrcode from "@chenfengyuan/vue-qrcode";
+import { copyToClipboard } from 'quasar'
 
 import MarketConfig from "components/MarketConfig.vue";
 import UserConfig from "components/UserConfig.vue";
@@ -665,6 +666,7 @@ export default defineComponent({
       );
     },
     marketsName() {
+      console.log('### marketsName', this.activeMarket)
       if (this.activeMarket) return this.activeMarket.opts?.name || "Market";
       const selectedMarkets = this.markets.filter((m) => m.selected);
       if (selectedMarkets.length === 0) return "No Market";
@@ -1035,6 +1037,7 @@ export default defineComponent({
           }
         }
       } else {
+        this.activeMarket = null;
         this.activeStall = null;
         this.activeProduct = null;
 
@@ -1042,7 +1045,7 @@ export default defineComponent({
         url.searchParams.delete("stall");
         url.searchParams.delete("product");
 
-        this.setActivePage("market");
+        this.setActivePage(page);
       }
 
       window.history.pushState({}, "", url);
@@ -1053,7 +1056,7 @@ export default defineComponent({
     },
     copyText: function (text) {
       var notify = this.$q.notify;
-      Quasar.utils.copyToClipboard(text).then(function () {
+      copyToClipboard(text).then(function () {
         notify({
           message: "Copied to clipboard!",
           position: "bottom",

@@ -1,43 +1,43 @@
 <template>
   <q-card>
-    <q-card-section v-if="account">
+    <q-card-section v-if="accountData">
       <div class="row">
         <div class="col-10">
 
-          <q-input v-value="account.npub" readonly disbled outlined :hint="account.pubkey" type="text" label="Public Key"
+          <q-input v-model="accountData.npub" readonly disbled outlined :hint="accountData.pubkey" type="text" label="Public Key"
             class="q-mb-md">
             <template v-slot:append>
-              <q-btn @click="copyText(account.npub)" icon="content_copy" label="Npub" flat
+              <q-btn @click="copyText(accountData.npub)" icon="content_copy" label="Npub" flat
                 color="gray float-right q-mt-sm"></q-btn>
             </template>
           </q-input>
         </div>
 
         <div class="col-2 auto-width">
-          <q-btn @click="copyText(account.pubkey)" icon="content_copy" label="Hex" flat
+          <q-btn @click="copyText(accountData.pubkey)" icon="content_copy" label="Hex" flat
             color="gray float-right q-mt-sm"></q-btn>
         </div>
       </div>
 
       <div class="row">
         <div class="col-10">
-          <q-input v-value="account.nsec" readonly disbled outlined type="password" label="Private Key" class="q-mb-md">
+          <q-input v-model="accountData.nsec" readonly disbled outlined type="password" label="Private Key" class="q-mb-md">
             <template v-slot:append>
-              <q-btn @click="copyText(account.nsec)" icon="content_copy" label="Nsec" flat
+              <q-btn @click="copyText(accountData.nsec)" icon="content_copy" label="Nsec" flat
                 color="gray float-right q-mt-sm"></q-btn>
             </template>
           </q-input>
         </div>
 
         <div class="col-2 auto-width">
-          <q-btn @click="copyText(account.privkey)" icon="content_copy" label="Hex" flat
+          <q-btn @click="copyText(accountData.privkey)" icon="content_copy" label="Hex" flat
             color="gray float-right q-mt-sm"></q-btn>
         </div>
       </div>
     </q-card-section>
     <q-separator />
     <q-card-section>
-      <div v-if="account" class="float-right">
+      <div v-if="accountData" class="float-right">
         <q-btn @click="logout" flat label="Logout" icon="logout" class="q-ml-lg" color="primary"></q-btn>
       </div>
       <div v-else>
@@ -58,6 +58,7 @@ export default defineComponent({
 
   data: function () {
     return {
+      accountData: null
     }
   },
   methods: {
@@ -72,7 +73,7 @@ export default defineComponent({
     }
   },
   created: async function () {
-
+    this.accountData = JSON.parse(JSON.stringify(this.account || {}))
   }
 
 })
