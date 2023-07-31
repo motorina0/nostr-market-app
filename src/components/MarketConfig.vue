@@ -74,6 +74,7 @@
                   </q-item-section>
                 </q-item>
               </q-list>
+
               <div class="q-mb-md"><strong>Information</strong></div>
               <q-input
                 @change="updateUiConfig"
@@ -289,10 +290,18 @@
         <q-btn
           @click="clearAllData"
           flat
-          label="Clear All Data"
+          label="Delete Market"
           icon="delete"
           class="q-ml-lg"
           color="negative"
+        ></q-btn>
+        <q-btn
+          @click="publishNaddr"
+          flat
+          label="Apply Look and Feel"
+          icon="palette"
+          class="q-ml-lg"
+          color="secondary"
         ></q-btn>
         <q-btn
           @click="publishNaddr"
@@ -304,6 +313,7 @@
         ></q-btn>
       </div>
     </q-card-section>
+    <q-card-section class="lt-md"></q-card-section>
     <q-card-section class="lt-md"></q-card-section>
     <q-card-section></q-card-section>
   </q-card>

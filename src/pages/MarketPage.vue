@@ -48,15 +48,14 @@
             ><q-tooltip> Settings</q-tooltip></q-btn
           > -->
           <q-btn
-            v-if="account"
             @click="navigateTo('user-config')"
             color="gray"
-            icon="perm_identity"
+            :icon="account ? 'perm_identity': 'person_add'"
             flat
             size="lg"
             ><q-tooltip>User User Config</q-tooltip></q-btn
           >
-          <q-btn
+          <!-- <q-btn
             v-else
             @click="accountDialog.show = true"
             color="gray"
@@ -64,7 +63,7 @@
             flat
             size="lg"
             ><q-tooltip>User Login</q-tooltip></q-btn
-          >
+          > -->
           <q-btn
             @click="navigateTo('user-chat')"
             color="gray"
@@ -287,14 +286,15 @@
       @remove-relay="removeRelay"
       @ui-config-update="updateUiConfig"
       @publish-naddr="publishNaddr"
-      @clear-all-data="clearAllData"
       @note-read="markNoteAsRead"
     ></market-config>
 
     <user-config
       v-else-if="activePage === 'user-config'"
       :account="account"
+      @login="accountDialog.show = true"
       @logout="logout"
+      @clear-all-data="clearAllData"
       @copy-text="copyText"
     ></user-config>
 
