@@ -1116,7 +1116,14 @@ export default defineComponent({
       this.stalls = this.stalls.filter((p) => p.pubkey !== publicKey);
       this.initNostr(); // todo: improve
     },
-    updateMarket(market) {},
+    updateMarket(market) {
+      const { d, pubkey } = market;
+      this.markets = this.markets.filter(
+        (m) => m.d !== d && m.pubkey !== pubkey
+      );
+      this.markets.unshift(market)
+      this.$q.localStorage.set("nostrmarket.markets", this.markets)
+    },
     deleteMarket(market) {
       const { d, pubkey } = market;
       this.markets = this.markets.filter(
