@@ -1,12 +1,12 @@
 <template>
   <q-page>
-    <div class="row q-mb-md q-pa-none">
-      <q-toolbar class="col-lg-1 col-md-1 col-sm-0 q-pl-none">
+    <div class="row q-mb-md">
+      <div class="col-lg-1 col-md-1 gt-sm">
         <q-avatar rounded size="64px" class="q-ma-none q-pa-none gt-sm">
           <img v-if="logoImage" :src="logoImage" />
         </q-avatar>
-      </q-toolbar>
-      <q-toolbar class="col-lg-6 col-md-5 col-sm-12 auto-width">
+      </div>
+      <div class="col-lg-7 col-md-5 col-12 auto-width">
         <div id="search-text"></div>
         <q-input
           class="rounded-pill"
@@ -28,8 +28,8 @@
             <q-icon v-if="!searchText" name="search" />
           </template>
         </q-input>
-      </q-toolbar>
-      <q-toolbar class="col-lg-5 col-md-6 col-sm-12 q-ma-none">
+      </div>
+      <div class="col-lg-4 col-md-6 col-12">
         <div class="float-right">
           <q-btn
             color="gray"
@@ -39,14 +39,14 @@
             @click="setActivePage('search-nostr')"
             ><q-tooltip>Search for products on Nostr</q-tooltip></q-btn
           >
-          <q-btn
+          <!-- <q-btn
             color="gray"
             icon="settings"
             flat
             size="lg"
             @click="setActivePage('market-config')"
             ><q-tooltip> Settings</q-tooltip></q-btn
-          >
+          > -->
           <q-btn
             v-if="account"
             @click="setActivePage('user-config')"
@@ -97,7 +97,7 @@
             </q-badge>
           </q-btn>
         </div>
-      </q-toolbar>
+      </div>
     </div>
 
     <div v-if="products?.length" class="gt-sm">
@@ -149,7 +149,7 @@
     </q-banner>
 
     <div class="row q-mb-sm">
-      <div class="col-md-10 col-sm-1 auto-width">
+      <div class="col-md-10 col-sm-7 auto-width">
         <q-breadcrumbs class="cursor q-mt-sm q-mr-sm">
           <q-breadcrumbs-el>
             <q-btn
@@ -250,7 +250,7 @@
           ></q-breadcrumbs-el>
         </q-breadcrumbs>
       </div>
-      <div class="col-md-2 col-sm-1">
+      <div class="col-md-2 col-sm-5">
         <q-btn
           v-if="activePage === 'customer-stall'"
           flat
@@ -262,7 +262,7 @@
         <q-checkbox
           v-model="groupByStall"
           v-else-if="activePage === 'market' && stalls?.length"
-          class="q-pl-md float-right"
+          class="q-pl-md q-mt-sm float-right"
           size="xs"
           val="xs"
           label="Group by stalls"
