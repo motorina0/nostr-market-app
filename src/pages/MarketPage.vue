@@ -50,7 +50,7 @@
           <q-btn
             @click="navigateTo('user-config')"
             color="gray"
-            :icon="account ? 'perm_identity': 'person_add'"
+            :icon="account ? 'perm_identity' : 'person_add'"
             flat
             size="lg"
             ><q-tooltip>User User Config</q-tooltip></q-btn
@@ -280,11 +280,9 @@
       v-else-if="activeMarket && activePage === 'market-config'"
       :market="activeMarket"
       :read-notes="readNotes"
-      @add-merchant="addMerchant"
-      @remove-merchant="removeMerchant"
-      @add-relay="addRelay"
-      @remove-relay="removeRelay"
-      @ui-config-update="updateUiConfig"
+      @apply-ui="updateUiConfig"
+      @market-update="updateMarket"
+      @delete-market="deleteMarket"
       @publish-naddr="publishNaddr"
       @note-read="markNoteAsRead"
     ></market-config>
@@ -502,7 +500,7 @@ window.$q = useQuasar();
 <script>
 import { defineComponent } from "vue";
 import VueQrcode from "@chenfengyuan/vue-qrcode";
-import { copyToClipboard } from 'quasar'
+import { copyToClipboard } from "quasar";
 
 import MarketConfig from "components/MarketConfig.vue";
 import UserConfig from "components/UserConfig.vue";
@@ -666,7 +664,7 @@ export default defineComponent({
       );
     },
     marketsName() {
-      console.log('### marketsName', this.activeMarket)
+      console.log("### marketsName", this.activeMarket);
       if (this.activeMarket) return this.activeMarket.opts?.name || "Market";
       const selectedMarkets = this.markets.filter((m) => m.selected);
       if (selectedMarkets.length === 0) return "No Market";
@@ -862,8 +860,8 @@ export default defineComponent({
       this.accountDialog.show = true;
     },
 
-    async updateUiConfig(data) {
-      const { name, about, ui } = data;
+    async updateUiConfig(data = { opts: {}}) {
+      const { name, about, ui } = data.opts;
       this.config = {
         ...this.config,
         opts: { ...this.config.opts, name, about, ui },
@@ -1074,6 +1072,7 @@ export default defineComponent({
       this.activePage = "loading";
       setTimeout(() => this.setActivePage(pageName), 100);
     },
+    // todo: remove
     async addRelay(relayUrl) {
       let relay = String(relayUrl).trim();
 
@@ -1081,6 +1080,7 @@ export default defineComponent({
       this.$q.localStorage.set(`nostrmarket.relays`, Array.from(this.relays));
       this.initNostr(); // todo: improve
     },
+    // todo: remove
     removeRelay(relayUrl) {
       this.relays.delete(relayUrl);
       this.relays = new Set(Array.from(this.relays));
@@ -1088,6 +1088,7 @@ export default defineComponent({
       this.initNostr(); // todo: improve
     },
 
+    // todo: remove
     addMerchant(publicKey) {
       this.merchants.unshift({
         publicKey,
@@ -1096,6 +1097,7 @@ export default defineComponent({
       this.$q.localStorage.set("nostrmarket.merchants", this.merchants);
       this.initNostr(); // todo: improve
     },
+    // todo: remove
     addMerchants(publicKeys = []) {
       const merchantsPubkeys = this.merchants.map((m) => m.publicKey);
 
@@ -1106,6 +1108,7 @@ export default defineComponent({
       this.$q.localStorage.set("nostrmarket.merchants", this.merchants);
       this.initNostr(); // todo: improve
     },
+    // todo: remove
     removeMerchant(publicKey) {
       this.merchants = this.merchants.filter((m) => m.publicKey !== publicKey);
       this.$q.localStorage.set("nostrmarket.merchants", this.merchants);
@@ -1113,7 +1116,23 @@ export default defineComponent({
       this.stalls = this.stalls.filter((p) => p.pubkey !== publicKey);
       this.initNostr(); // todo: improve
     },
-
+    updateMarket(market) {},
+    deleteMarket(market) {
+      const { d, pubkey } = market;
+      this.markets = this.markets.filter(
+        (m) => m.d !== d && m.pubkey !== pubkey
+      );
+      this.$q.localStorage.set("nostrmarket.markets", this.markets);
+      if (
+        this.activeMarket &&
+        this.activeMarket.d === d &&
+        this.activeMarket.pubkey === pubkey
+      ) {
+        this.activeMarket = null;
+        this.navigateTo("market");
+        this.updateUiConfig(this.markets[0]);
+      }
+    },
     addProductToCart(item) {
       let stallCart = this.shoppingCarts.find((s) => s.id === item.stall_id);
       if (!stallCart) {

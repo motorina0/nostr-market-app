@@ -77,9 +77,9 @@
 
               <div class="q-mb-md"><strong>Information</strong></div>
               <q-input
-                @change="updateUiConfig"
+                @change="updateMarketData"
                 outlined
-                v-model="configData.opts.name"
+                v-model="marketData.opts.name"
                 type="text"
                 label="Market Name"
                 hint="Short name for the market"
@@ -87,9 +87,9 @@
               >
               </q-input>
               <q-input
-                @change="updateUiConfig"
+                @change="updateMarketData"
                 outlined
-                v-model="configData.opts.about"
+                v-model="marketData.opts.about"
                 type="textarea"
                 rows="3"
                 label="Marketplace Description"
@@ -102,9 +102,9 @@
               </div>
 
               <q-input
-                @change="updateUiConfig"
+                @change="updateMarketData"
                 outlined
-                v-model="configData.opts.ui.picture"
+                v-model="marketData.opts.ui.picture"
                 type="text"
                 label="Logo"
                 hint="It will be displayed next to the search input. Can be png, jpg, ico, gif, svg."
@@ -112,9 +112,9 @@
               >
               </q-input>
               <q-input
-                @change="updateUiConfig"
+                @change="updateMarketData"
                 outlined
-                v-model="configData.opts.ui.banner"
+                v-model="marketData.opts.ui.banner"
                 type="text"
                 label="Banner"
                 hint="It represents the visual identity of the market. Can be png, jpg, ico, gif, svg."
@@ -122,10 +122,10 @@
               >
               </q-input>
               <q-select
-                @input="updateUiConfig"
-                @update:model-value="updateUiConfig"
+                @input="updateMarketData"
+                @update:model-value="updateMarketData"
                 filled
-                v-model="configData.opts.ui.theme"
+                v-model="marketData.opts.ui.theme"
                 hint="The colors of the market will vary based on the theme. It applies to all components (buttons, labels, inputs, etc)"
                 :options="themeOptions"
                 label="Marketplace Theme"
@@ -133,9 +133,9 @@
 
               <div class="lt-md q-mt-lg"></div>
               <q-checkbox
-                @input="updateUiConfig"
-                @click="updateUiConfig"
-                v-model="configData.opts.ui.darkMode"
+                @input="updateMarketData"
+                @click="updateMarketData"
+                v-model="marketData.opts.ui.darkMode"
                 label="Dark Mode"
                 size="sm"
                 class="q-mt-sm"
@@ -201,7 +201,7 @@
                 </q-input>
                 <q-list class="q-mt-md">
                   <q-item
-                    v-for="publicKey in configData.opts.merchants"
+                    v-for="publicKey in marketData.opts.merchants"
                     :key="publicKey"
                   >
                     <q-item-section avatar>
@@ -254,7 +254,7 @@
                     <q-btn @click="addRelay" dense flat icon="add"></q-btn>
                   </q-input>
                   <q-list class="q-mt-md">
-                    <q-item v-for="relay in configData.relays" :key="relay">
+                    <q-item v-for="relay in marketData.relays" :key="relay">
                       <q-item-section avatar>
                         <q-avatar>
                           <q-icon name="router"></q-icon>
@@ -288,7 +288,7 @@
     <q-card-section>
       <div class="float-right">
         <q-btn
-          @click="clearAllData"
+          @click="deleteMarket"
           flat
           label="Delete Market"
           icon="delete"
@@ -296,7 +296,7 @@
           color="negative"
         ></q-btn>
         <q-btn
-          @click="publishNaddr"
+          @click="applyLookAndFeel"
           flat
           label="Apply Look and Feel"
           icon="palette"
@@ -332,7 +332,7 @@ export default defineComponent({
 
       merchantPubkey: null,
       relayUrl: null,
-      configData: {
+      marketData: {
         pubkey: null,
         relays: [],
         opts: {
@@ -373,11 +373,13 @@ export default defineComponent({
       const publicKey = isValidKeyHex(this.merchantPubkey)
         ? this.merchantPubkey
         : NostrTools.nip19.decode(this.merchantPubkey).data;
-      this.$emit("add-merchant", publicKey);
+      this.marketData.opts.merchants.push(publicKey)
+      this.updateMarketData()
       this.merchantPubkey = null;
     },
     removeMerchant: async function (publicKey) {
-      this.$emit("remove-merchant", publicKey);
+      this.marketData.opts.merchants = this.marketData.opts.merchants.filter(m => m !== publicKey)
+      this.updateMarketData()
     },
     addRelay: async function () {
       const relayUrl = (this.relayUrl || "").trim();
@@ -393,7 +395,8 @@ export default defineComponent({
       }
       try {
         new URL(relayUrl);
-        this.$emit("add-relay", relayUrl);
+        this.marketData.relays.push(relayUrl)
+        this.updateMarketData()
       } catch (error) {
         $q.notify({
           timeout: 5000,
@@ -406,27 +409,30 @@ export default defineComponent({
       this.relayUrl = null;
     },
     removeRelay: async function (relay) {
-      this.$emit("remove-relay", relay);
+      this.marketData.relays = this.marketData.relays.filter(r => r !== relay)
+      this.updateMarketData()
     },
-    updateUiConfig: function () {
+    updateMarketData: function () {
       setTimeout(() => {
-        const { name, about, ui } = this.configData.opts;
-        this.$emit("ui-config-update", { name, about, ui });
-      }, 100);
+        this.$emit("market-update", this.marketData);
+      });
     },
     publishNaddr() {
       this.$emit("publish-naddr");
     },
-    clearAllData() {
-      this.$emit("clear-all-data");
+    deleteMarket() {
+      this.$emit("delete-market", this.marketData);
+    },
+    applyLookAndFeel() {
+      this.$emit("apply-ui", this.marketData);
     },
     markNoteAsRead(noteId) {
       this.$emit("note-read", noteId);
     },
   },
   created: async function () {
-    this.configData = {
-      ...this.configData,
+    this.marketData = {
+      ...this.marketData,
       ...JSON.parse(JSON.stringify(this.market || {})),
     };
   },
