@@ -5,6 +5,11 @@
         <div class="q-gutter-y-md">
           <q-tabs v-model="tab" active-color="primary" align="justify">
             <q-tab
+              name="marketplace"
+              label="Look And Feel"
+              @update="(val) => (tab = val.name)"
+            ></q-tab>
+            <q-tab
               name="merchants"
               label="Merchants"
               @update="(val) => (tab = val.name)"
@@ -12,11 +17,6 @@
             <q-tab
               name="relays"
               label="Relays"
-              @update="(val) => (tab = val.name)"
-            ></q-tab>
-            <q-tab
-              name="marketplace"
-              label="Look And Feel"
               @update="(val) => (tab = val.name)"
             ></q-tab>
           </q-tabs>
@@ -28,6 +28,118 @@
       <div class="q-pa-md">
         <div class="q-gutter-y-md">
           <q-tab-panels v-model="tab">
+            <q-tab-panel name="marketplace">
+              <q-list
+                v-if="!readNotes?.marketUi"
+                class="q-mb-lg gt-sm"
+                bordered
+              >
+                <q-item>
+                  <q-item-section avatar>
+                    <q-avatar>
+                      <q-icon color="primary" name="info" size="xl" />
+                    </q-avatar>
+                  </q-item-section>
+                  <q-item-section class="q-mt-sm q-ml-lg">
+                    <q-item-label><strong>Note</strong></q-item-label>
+                    <q-item-label>
+                      <div class="text-caption">
+                        <ul>
+                          <li>
+                            <span class="text-subtitle1">
+                              Here one can customize the look and feel of the
+                              Market.
+                            </span>
+                          </li>
+                          <li>
+                            <span class="text-subtitle1">
+                              When the Market Profile is shared (via
+                              <code>naddr</code> ) these customisations will be
+                              available to the customers.
+                            </span>
+                          </li>
+                        </ul>
+                      </div>
+                    </q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-btn
+                      @click="markNoteAsRead('marketUi')"
+                      size="lg"
+                      outline
+                      color="primary"
+                      label="Got it!"
+                      icon="check_small"
+                    />
+                  </q-item-section>
+                </q-item>
+              </q-list>
+              <div class="q-mb-md"><strong>Information</strong></div>
+              <q-input
+                @change="updateUiConfig"
+                outlined
+                v-model="configData.opts.name"
+                type="text"
+                label="Market Name"
+                hint="Short name for the market"
+                class="q-mb-md"
+              >
+              </q-input>
+              <q-input
+                @change="updateUiConfig"
+                outlined
+                v-model="configData.opts.about"
+                type="textarea"
+                rows="3"
+                label="Marketplace Description"
+                hint="It will be displayed on top of the banner image. Can be a longer text."
+                class="q-mb-lg"
+              ></q-input>
+
+              <div class="q-mb-md q-mt-lg">
+                <strong>UI Configurations</strong>
+              </div>
+
+              <q-input
+                @change="updateUiConfig"
+                outlined
+                v-model="configData.opts.ui.picture"
+                type="text"
+                label="Logo"
+                hint="It will be displayed next to the search input. Can be png, jpg, ico, gif, svg."
+                class="q-mb-md"
+              >
+              </q-input>
+              <q-input
+                @change="updateUiConfig"
+                outlined
+                v-model="configData.opts.ui.banner"
+                type="text"
+                label="Banner"
+                hint="It represents the visual identity of the market. Can be png, jpg, ico, gif, svg."
+                class="q-mb-md"
+              >
+              </q-input>
+              <q-select
+                @input="updateUiConfig"
+                @update:model-value="updateUiConfig"
+                filled
+                v-model="configData.opts.ui.theme"
+                hint="The colors of the market will vary based on the theme. It applies to all components (buttons, labels, inputs, etc)"
+                :options="themeOptions"
+                label="Marketplace Theme"
+              ></q-select>
+
+              <div class="lt-md q-mt-lg"></div>
+              <q-checkbox
+                @input="updateUiConfig"
+                @click="updateUiConfig"
+                v-model="configData.opts.ui.darkMode"
+                label="Dark Mode"
+                size="sm"
+                class="q-mt-sm"
+              ></q-checkbox>
+            </q-tab-panel>
             <q-tab-panel name="merchants">
               <q-list v-if="!readNotes?.merchants" class="q-mb-lg" bordered>
                 <q-item>
@@ -167,118 +279,6 @@
                 </div>
               </div>
             </q-tab-panel>
-            <q-tab-panel name="marketplace">
-              <q-list
-                v-if="!readNotes?.marketUi"
-                class="q-mb-lg gt-sm"
-                bordered
-              >
-                <q-item>
-                  <q-item-section avatar>
-                    <q-avatar>
-                      <q-icon color="primary" name="info" size="xl" />
-                    </q-avatar>
-                  </q-item-section>
-                  <q-item-section class="q-mt-sm q-ml-lg">
-                    <q-item-label><strong>Note</strong></q-item-label>
-                    <q-item-label>
-                      <div class="text-caption">
-                        <ul>
-                          <li>
-                            <span class="text-subtitle1">
-                              Here one can customize the look and feel of the
-                              Market.
-                            </span>
-                          </li>
-                          <li>
-                            <span class="text-subtitle1">
-                              When the Market Profile is shared (via
-                              <code>naddr</code> ) these customisations will be
-                              available to the customers.
-                            </span>
-                          </li>
-                        </ul>
-                      </div>
-                    </q-item-label>
-                  </q-item-section>
-                  <q-item-section side>
-                    <q-btn
-                      @click="markNoteAsRead('marketUi')"
-                      size="lg"
-                      outline
-                      color="primary"
-                      label="Got it!"
-                      icon="check_small"
-                    />
-                  </q-item-section>
-                </q-item>
-              </q-list>
-              <div class="q-mb-md"><strong>Information</strong></div>
-              <q-input
-                @change="updateUiConfig"
-                outlined
-                v-model="configData.opts.name"
-                type="text"
-                label="Market Name"
-                hint="Short name for the market"
-                class="q-mb-md"
-              >
-              </q-input>
-              <q-input
-                @change="updateUiConfig"
-                outlined
-                v-model="configData.opts.about"
-                type="textarea"
-                rows="3"
-                label="Marketplace Description"
-                hint="It will be displayed on top of the banner image. Can be a longer text."
-                class="q-mb-lg"
-              ></q-input>
-
-              <div class="q-mb-md q-mt-lg">
-                <strong>UI Configurations</strong>
-              </div>
-
-              <q-input
-                @change="updateUiConfig"
-                outlined
-                v-model="configData.opts.ui.picture"
-                type="text"
-                label="Logo"
-                hint="It will be displayed next to the search input. Can be png, jpg, ico, gif, svg."
-                class="q-mb-md"
-              >
-              </q-input>
-              <q-input
-                @change="updateUiConfig"
-                outlined
-                v-model="configData.opts.ui.banner"
-                type="text"
-                label="Banner"
-                hint="It represents the visual identity of the market. Can be png, jpg, ico, gif, svg."
-                class="q-mb-md"
-              >
-              </q-input>
-              <q-select
-                @input="updateUiConfig"
-                @update:model-value="updateUiConfig"
-                filled
-                v-model="configData.opts.ui.theme"
-                hint="The colors of the market will vary based on the theme. It applies to all components (buttons, labels, inputs, etc)"
-                :options="themeOptions"
-                label="Marketplace Theme"
-              ></q-select>
-
-              <div class="lt-md q-mt-lg"></div>
-              <q-checkbox
-                @input="updateUiConfig"
-                @click="updateUiConfig"
-                v-model="configData.opts.ui.darkMode"
-                label="Dark Mode"
-                size="sm"
-                class="q-mt-sm"
-              ></q-checkbox>
-            </q-tab-panel>
           </q-tab-panels>
         </div>
       </div>
@@ -318,7 +318,7 @@ export default defineComponent({
 
   data: function () {
     return {
-      tab: "merchants",
+      tab: "marketplace",
 
       merchantPubkey: null,
       relayUrl: null,
