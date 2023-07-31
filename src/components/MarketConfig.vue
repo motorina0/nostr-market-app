@@ -88,7 +88,7 @@
                 </q-input>
                 <q-list class="q-mt-md">
                   <q-item
-                    v-for="{ publicKey, profile } in merchants"
+                    v-for="publicKey in configData.opts.merchants"
                     :key="publicKey"
                   >
                     <q-item-section avatar>
@@ -141,7 +141,7 @@
                     <q-btn @click="addRelay" dense flat icon="add"></q-btn>
                   </q-input>
                   <q-list class="q-mt-md">
-                    <q-item v-for="relay in relays" :key="relay">
+                    <q-item v-for="relay in configData.relays" :key="relay">
                       <q-item-section avatar>
                         <q-avatar>
                           <q-icon name="router"></q-icon>
@@ -217,7 +217,7 @@
               <q-input
                 @change="updateUiConfig"
                 outlined
-                v-model="configData.name"
+                v-model="configData.opts.name"
                 type="text"
                 label="Market Name"
                 hint="Short name for the market"
@@ -227,7 +227,7 @@
               <q-input
                 @change="updateUiConfig"
                 outlined
-                v-model="configData.about"
+                v-model="configData.opts.about"
                 type="textarea"
                 rows="3"
                 label="Marketplace Description"
@@ -242,7 +242,7 @@
               <q-input
                 @change="updateUiConfig"
                 outlined
-                v-model="configData.ui.picture"
+                v-model="configData.opts.ui.picture"
                 type="text"
                 label="Logo"
                 hint="It will be displayed next to the search input. Can be png, jpg, ico, gif, svg."
@@ -252,7 +252,7 @@
               <q-input
                 @change="updateUiConfig"
                 outlined
-                v-model="configData.ui.banner"
+                v-model="configData.opts.ui.banner"
                 type="text"
                 label="Banner"
                 hint="It represents the visual identity of the market. Can be png, jpg, ico, gif, svg."
@@ -263,7 +263,7 @@
                 @input="updateUiConfig"
                 @update:model-value="updateUiConfig"
                 filled
-                v-model="configData.ui.theme"
+                v-model="configData.opts.ui.theme"
                 hint="The colors of the market will vary based on the theme. It applies to all components (buttons, labels, inputs, etc)"
                 :options="themeOptions"
                 label="Marketplace Theme"
@@ -273,7 +273,7 @@
               <q-checkbox
                 @input="updateUiConfig"
                 @click="updateUiConfig"
-                v-model="configData.ui.darkMode"
+                v-model="configData.opts.ui.darkMode"
                 label="Dark Mode"
                 size="sm"
                 class="q-mt-sm"
@@ -314,22 +314,28 @@ import { defineComponent } from "vue";
 
 export default defineComponent({
   name: "EssentialLink",
-  props: ["merchants", "relays", "config-ui", "read-notes"],
+  props: ["market", "read-notes"],
 
   data: function () {
     return {
       tab: "merchants",
+
       merchantPubkey: null,
       relayUrl: null,
       configData: {
-        identifier: null,
-        name: null,
-        about: null,
-        ui: {
-          picture: null,
-          banner: null,
-          theme: null,
-          darkMode: false,
+        pubkey: null,
+        relays: [],
+        opts: {
+          identifier: null,
+          name: null,
+          about: null,
+          merchants: [],
+          ui: {
+            picture: null,
+            banner: null,
+            theme: null,
+            darkMode: false,
+          },
         },
       },
       themeOptions: [
@@ -394,7 +400,7 @@ export default defineComponent({
     },
     updateUiConfig: function () {
       setTimeout(() => {
-        const { name, about, ui } = this.configData;
+        const { name, about, ui } = this.configData.opts;
         this.$emit("ui-config-update", { name, about, ui });
       }, 100);
     },
@@ -409,16 +415,10 @@ export default defineComponent({
     },
   },
   created: async function () {
-    if (this.configUi) {
-      this.configData = {
-        ...this.configData,
-        ...this.configUi,
-        ui: {
-          ...this.configData.ui,
-          ...(this.configUi.ui || {}),
-        },
-      };
-    }
+    this.configData = {
+      ...this.configData,
+      ...JSON.parse(JSON.stringify(this.market || {})),
+    };
   },
 });
 </script>

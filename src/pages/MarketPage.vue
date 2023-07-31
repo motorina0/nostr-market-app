@@ -199,7 +199,13 @@
                     </q-item-label>
                   </q-item-section>
                   <q-item-section side top>
-                    <q-btn color="secondary" flat icon="settings" @click="showMarketConfig(index)" />
+                    <q-btn
+                      color="secondary"
+                      flat
+                      v-close-popup
+                      icon="settings"
+                      @click="showMarketConfig(index)"
+                    />
                   </q-item-section>
                 </q-item> </q-list
             ></q-btn-dropdown>
@@ -266,12 +272,15 @@
 
     <q-separator class="q-mt-sm q-mb-md"></q-separator>
 
+    <div v-if="activePage === 'loading'" class="row q-mb-sm">
+      <div class="col-12 text-center">
+        <q-spinner-dots color="primary" size="xl" />
+      </div>
+    </div>
     <market-config
-      v-if="activePage === 'market-config'"
-      :merchants="merchants"
-      :relays="relays"
+      v-else-if="activeMarket && activePage === 'market-config'"
+      :market="activeMarket"
       :read-notes="readNotes"
-      :config-ui="config?.opts"
       @add-merchant="addMerchant"
       @remove-merchant="removeMerchant"
       @add-relay="addRelay"
@@ -1058,6 +1067,10 @@ export default defineComponent({
     setActivePage(page = "market") {
       this.activePage = page;
     },
+    transitToPage(pageName) {
+      this.activePage = "loading";
+      setTimeout(() => this.setActivePage(pageName), 100);
+    },
     async addRelay(relayUrl) {
       let relay = String(relayUrl).trim();
 
@@ -1527,10 +1540,11 @@ export default defineComponent({
       this.markets.forEach((m) => (m.selected = this.allMarketsSelected));
       this.$q.localStorage.set("nostrmarket.markets", this.markets);
     },
-    showMarketConfig(index){
-      this.activeMarket = this.markets[index]
-      this.setActivePage('market-config')
-    }
+
+    showMarketConfig(index) {
+      this.activeMarket = this.markets[index];
+      this.transitToPage("market-config");
+    },
   },
 });
 </script>
