@@ -158,10 +158,7 @@
               flat
               class="q-pa-none"
             >
-              <span
-                v-text="config?.opts?.name || 'Market'"
-                class="q-ml-sm"
-              ></span>
+              <span v-text="marketsName" class="q-ml-sm"></span>
             </q-btn>
             <q-btn-dropdown flat class="q-pl-xs">
               <q-list>
@@ -185,7 +182,10 @@
                 <q-separator />
                 <q-item v-for="(market, index) of markets" :key="index">
                   <q-item-section side top>
-                    <q-checkbox v-model="market.selected" @click="toggleMarket()" />
+                    <q-checkbox
+                      v-model="market.selected"
+                      @click="toggleMarket()"
+                    />
                   </q-item-section>
                   <q-item-section>
                     <q-item-label>
@@ -197,6 +197,9 @@
                         class="ellipsis-2-lines text-wrap"
                       ></span>
                     </q-item-label>
+                  </q-item-section>
+                  <q-item-section side top>
+                    <q-btn color="secondary" flat icon="settings" />
                   </q-item-section>
                 </q-item> </q-list
             ></q-btn-dropdown>
@@ -650,6 +653,13 @@ export default defineComponent({
           (s.categories &&
             s.categories.toString().toLowerCase().includes(searchText))
       );
+    },
+    marketsName() {
+      const selectedMarkets = this.markets.filter((m) => m.selected);
+      if (selectedMarkets.length === 0) return "No Market";
+      if (selectedMarkets.length === 1)
+        return selectedMarkets[0].opts?.name || "Market";
+      return selectedMarkets.length + " Markets";
     },
     stallName() {
       return this.stalls.find((s) => s.id == this.activeStall)?.name || "Stall";
@@ -1508,7 +1518,7 @@ export default defineComponent({
       this.showFilterDetails = true;
     },
     toggleMarket() {
-      this.allMarketsSelected = !this.markets.find(m => !m.selected)
+      this.allMarketsSelected = !this.markets.find((m) => !m.selected);
       this.$q.localStorage.set("nostrmarket.markets", this.markets);
     },
     toggleAllMarkets() {
