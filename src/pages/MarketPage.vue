@@ -165,20 +165,28 @@
             </q-btn>
             <q-btn-dropdown flat class="q-pl-xs">
               <q-list>
-                <q-item clickable v-close-popup>
+                <q-item v-ripple>
+                  <q-item-section side top>
+                    <q-checkbox
+                      v-model="allMarketsSelected"
+                      @click="toggleAllMarkets"
+                    />
+                  </q-item-section>
                   <q-item-section>
                     <q-item-label> <strong>All markets</strong></q-item-label>
                     <q-item-label caption
                       >Aggregate all markets into one view</q-item-label
                     >
                   </q-item-section>
+                  <q-item-section side top>
+                    <q-btn color="green" outline>New</q-btn>
+                  </q-item-section>
                 </q-item>
-                <q-item
-                  v-for="(market, index) of markets"
-                  :key="index"
-                  clickable
-                  v-close-popup
-                >
+                <q-separator />
+                <q-item v-for="(market, index) of markets" :key="index">
+                  <q-item-section side top>
+                    <q-checkbox v-model="market.selected" @click="toggleMarket()" />
+                  </q-item-section>
                   <q-item-section>
                     <q-item-label>
                       <span v-text="market.opts?.name || 'Market'"></span>
@@ -517,6 +525,7 @@ export default defineComponent({
       activePage: "market",
       activeOrderId: null,
       dmSubscriptions: {},
+      allMarketsSelected: false,
 
       qrCodeDialog: {
         data: {
@@ -733,6 +742,8 @@ export default defineComponent({
     },
     restoreFromStorage() {
       this.markets = this.$q.localStorage.getItem("nostrmarket.markets") || [];
+      this.allMarketsSelected = !this.markets.find((m) => !m.selected);
+
       this.merchants =
         this.$q.localStorage.getItem("nostrmarket.merchants") || [];
       this.shoppingCarts =
@@ -948,6 +959,7 @@ export default defineComponent({
           d: data.identifier,
           pubkey: data.pubkey,
           relays: data.relays,
+          selected: true,
         };
 
         // add relays to the set
@@ -1494,6 +1506,14 @@ export default defineComponent({
     focusOnElement(elementId) {
       document.getElementById(elementId)?.scrollIntoView();
       this.showFilterDetails = true;
+    },
+    toggleMarket() {
+      this.allMarketsSelected = !this.markets.find(m => !m.selected)
+      this.$q.localStorage.set("nostrmarket.markets", this.markets);
+    },
+    toggleAllMarkets() {
+      this.markets.forEach((m) => (m.selected = this.allMarketsSelected));
+      this.$q.localStorage.set("nostrmarket.markets", this.markets);
     },
   },
 });
