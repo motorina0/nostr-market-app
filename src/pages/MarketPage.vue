@@ -543,7 +543,8 @@ export default defineComponent({
         },
       },
 
-      relaysData: [],
+      relaysData: {},
+      relaysState: {},
       markets: [],
       merchants: [],
       shoppingCarts: [],
@@ -993,6 +994,7 @@ export default defineComponent({
         });
         await relay.connect();
       } catch (error) {
+        relayData.error = `${error}`;
         console.warn(`Failed to connect to ${relayData.relayUrl}`);
       }
     },
@@ -1001,7 +1003,7 @@ export default defineComponent({
       const events = await relay.list([{ kinds: [0, 30017, 30018], authors }]);
       console.log("### queryRelay", events);
       if (!events?.length) return;
-      await this.processEvents(events);
+      await this.processEvents(events, relay.url);
       const lastEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
 
       const sub = relay.sub([
@@ -1010,17 +1012,18 @@ export default defineComponent({
       sub.on(
         "event",
         (event) => {
-          this.processEvents([event]);
+          this.processEvents([event], relay.url);
         },
         { id: "masterSub" } //pass ID to cancel previous sub
       );
     },
 
-    processEvents(events) {
+    processEvents(events, relayUrl) {
       console.log("### processEvents", events);
       if (!events?.length) return;
       events = events
         .filter((e) => !this.processedEventIds.includes(e.id))
+        .map((e) => ({ ...e, relayUrl }))
         .map(eventToObj);
 
       events.filter((e) => e.kind === 30017).forEach(this.processStallEvents);
@@ -1039,6 +1042,7 @@ export default defineComponent({
         pubkey: e.pubkey,
         createAt: e.created_at,
         eventId: e.id,
+        relayUrls: [e.relayUrl],
       });
     },
 
@@ -1046,11 +1050,17 @@ export default defineComponent({
       const stallIndex = this.stalls.findIndex(
         (s) => s.id === stall.id && s.pubkey === stall.pubkey
       );
-      if (stallIndex !== -1) {
-        if (this.stalls[stallIndex].createdAt > stall.createdAt) return;
-        this.stalls.splice(stallIndex, 1, stall);
-      } else {
+      if (stallIndex === -1) {
         this.stalls.push(stall);
+        return;
+      }
+
+      const existingStall = this.stalls[stallIndex];
+      existingStall.relayUrls = [
+        ...new Set(stall.relayUrls.concat(existingStall.relayUrls)),
+      ];
+      if (existingStall.createdAt < stall.createdAt) {
+        this.stalls.splice(stallIndex, 1, stall);
       }
     },
 
@@ -1071,6 +1081,7 @@ export default defineComponent({
         id: e.d,
         categories: e.t,
         eventId: e.id,
+        relayUrls: [e.relayUrl],
       });
     },
 
@@ -1078,11 +1089,16 @@ export default defineComponent({
       const productIndex = this.products.findIndex(
         (p) => p.id === product.id && p.pubkey === product.pubkey
       );
-      if (productIndex !== -1) {
-        if (this.products[productIndex].createdAt > product.createdAt) return;
-        this.products.splice(productIndex, 1, product);
-      } else {
+      if (productIndex === -1) {
         this.products.push(product);
+        return;
+      }
+      const existingProduct = this.products[productIndex];
+      existingProduct.relayUrls = [
+        ...new Set(product.relayUrls.concat(existingProduct.relayUrls)),
+      ];
+      if (existingProduct.createdAt < product.createdAt) {
+        this.products.splice(productIndex, 1, product);
       }
     },
 
