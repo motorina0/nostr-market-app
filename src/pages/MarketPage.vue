@@ -543,7 +543,7 @@ export default defineComponent({
         },
       },
 
-      relaysState: [],
+      relaysData: [],
       markets: [],
       merchants: [],
       shoppingCarts: [],
@@ -962,38 +962,38 @@ export default defineComponent({
       for (const market of this.markets) {
         for (const relayUrl of market.relays) {
           const relayKey = "relay_" + (await hash(relayUrl));
-          this.relaysState[relayKey] = this.relaysState[relayKey] || {
+          this.relaysData[relayKey] = this.relaysData[relayKey] || {
             relayUrl,
             connected: false,
             error: null,
             merchants: [],
           };
-          const relayState = this.relaysState[relayKey];
-          relayState.merchants = [
-            ...new Set(relayState.merchants.concat(market.opts.merchants)),
+          const relayData = this.relaysData[relayKey];
+          relayData.merchants = [
+            ...new Set(relayData.merchants.concat(market.opts.merchants)),
           ];
         }
       }
-      console.log("### loadRelaysData", this.relaysState);
-      Object.values(this.relaysState).forEach(this.connectToRelay);
+      console.log("### loadRelaysData", this.relaysData);
+      Object.values(this.relaysData).forEach(this.connectToRelay);
     },
 
-    async connectToRelay(relayState) {
+    async connectToRelay(relayData) {
       try {
-        const relay = NostrTools.relayInit(relayState.relayUrl);
+        const relay = NostrTools.relayInit(relayData.relayUrl);
         relay.on("connect", () => {
-          relayState.connected = true;
-          relayState.error = null;
-          this.queryRelay(relay, relayState.merchants);
+          relayData.connected = true;
+          relayData.error = null;
+          this.queryRelay(relay, relayData.merchants);
         });
         relay.on("error", (error) => {
           console.warn(`Error by relat ${relay.url}`);
-          relayState.connected = false;
-          relayState.error = error;
+          relayData.connected = false;
+          relayData.error = error;
         });
         await relay.connect();
       } catch (error) {
-        console.warn(`Failed to connect to ${relayState.relayUrl}`);
+        console.warn(`Failed to connect to ${relayData.relayUrl}`);
       }
     },
 
@@ -1001,7 +1001,6 @@ export default defineComponent({
       const events = await relay.list([{ kinds: [0, 30017, 30018], authors }]);
       console.log("### queryRelay", events);
       if (!events?.length) return;
-      // await this.updateData(events);
       await this.processEvents(events);
       const lastEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
 
@@ -1011,7 +1010,6 @@ export default defineComponent({
       sub.on(
         "event",
         (event) => {
-          // this.updateData([event]);
           this.processEvents([event]);
         },
         { id: "masterSub" } //pass ID to cancel previous sub
