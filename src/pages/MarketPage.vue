@@ -378,7 +378,7 @@
                 <li>
                   <span class="text-h6">
                     <q-btn
-                      @click="setActivePage('market-config')"
+                      @click="createMarket(true)"
                       flat
                       size="xl"
                       color="secondary"
@@ -670,7 +670,6 @@ export default defineComponent({
       );
     },
     marketsName() {
-      console.log("### marketsName", this.activeMarket);
       if (this.activeMarket) return this.activeMarket.opts?.name || "Market";
       const selectedMarkets = this.markets.filter((m) => m.selected);
       if (selectedMarkets.length === 0) return "No Market";
@@ -1585,7 +1584,7 @@ export default defineComponent({
     createMarket(navigateToConfig) {
       this.markets.unshift({
         d: crypto.randomUUID(),
-        pubkey: this.account.pubkey || "",
+        pubkey: this.account?.pubkey || "",
         relays: [],
         selected: true,
       });
