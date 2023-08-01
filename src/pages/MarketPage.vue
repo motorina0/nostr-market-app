@@ -597,6 +597,9 @@ export default defineComponent({
         merchants: false,
         marketUi: false,
       },
+
+      // events
+      processedEventIds: [],
     };
   },
   watch: {
@@ -972,25 +975,26 @@ export default defineComponent({
         }
       }
       console.log("### loadRelaysData", this.relaysState);
-      Object.values(this.relaysState).forEach((relayState) => {
-        this.connectToRelay(relayState);
-      });
+      Object.values(this.relaysState).forEach(this.connectToRelay);
     },
 
     async connectToRelay(relayState) {
-      const relay = NostrTools.relayInit(relayState.relayUrl);
-      relay.on("connect", () => {
-        console.log(`### connected to ${relay.url}`);
-        relayState.connected = true;
-        relayState.error = null;
-        this.queryRelay(relay, relayState.merchants);
-      });
-      relay.on("error", (error) => {
-        console.log(`### failed to connect to ${relay.url}`);
-        relayState.connected = false;
-        relayState.error = error;
-      });
-      await relay.connect();
+      try {
+        const relay = NostrTools.relayInit(relayState.relayUrl);
+        relay.on("connect", () => {
+          relayState.connected = true;
+          relayState.error = null;
+          this.queryRelay(relay, relayState.merchants);
+        });
+        relay.on("error", (error) => {
+          console.warn(`Error by relat ${relay.url}`);
+          relayState.connected = false;
+          relayState.error = error;
+        });
+        await relay.connect();
+      } catch (error) {
+        console.warn(`Failed to connect to ${relayState.relayUrl}`);
+      }
     },
 
     async queryRelay(relay, authors) {
@@ -1014,8 +1018,74 @@ export default defineComponent({
       );
     },
 
-    async processEvents(events) {
+    processEvents(events) {
       console.log("### processEvents", events);
+      if (!events?.length) return;
+      events = events
+        .filter((e) => !this.processedEventIds.includes(e.id))
+        .map(eventToObj);
+
+      events.filter((e) => e.kind === 30017).forEach(this.processStallEvents);
+      events.filter((e) => e.kind === 30018).forEach(this.processProductEvents);
+
+      this.processedEventIds.push(...events.map((e) => e.id));
+
+      console.log("### stalls", this.stalls);
+      console.log("### produts", this.products);
+    },
+
+    processStallEvents(e) {
+      this.processStall({
+        ...e.content,
+        id: e.d,
+        pubkey: e.pubkey,
+        createAt: e.created_at,
+        eventId: e.id,
+      });
+    },
+
+    processStall(stall) {
+      const stallIndex = this.stalls.findIndex(
+        (s) => s.id === stall.id && s.pubkey === stall.pubkey
+      );
+      if (stallIndex !== -1) {
+        if (this.stalls[stallIndex].createdAt > stall.createdAt) return;
+        this.stalls.splice(stallIndex, 1, stall);
+      } else {
+        this.stalls.push(stall);
+      }
+    },
+
+    processProductEvents(e) {
+      const p = { ...e.content };
+      const stall = this.stalls.find((s) => s.id == p.stall_id);
+
+      if (!stall) return;
+      if (p.currency != "sat") {
+        p.formatedPrice = this.getAmountFormated(p.price, p.currency);
+      }
+
+      this.processProduct({
+        ...p,
+        stallName: stall.name,
+        images: p.images || [p.image],
+        pubkey: e.pubkey,
+        id: e.d,
+        categories: e.t,
+        eventId: e.id,
+      });
+    },
+
+    processProduct(product) {
+      const productIndex = this.products.findIndex(
+        (p) => p.id === product.id && p.pubkey === product.pubkey
+      );
+      if (productIndex !== -1) {
+        if (this.products[productIndex].createdAt > product.createdAt) return;
+        this.products.splice(productIndex, 1, product);
+      } else {
+        this.products.push(product);
+      }
     },
 
     async initNostr() {
@@ -1163,7 +1233,7 @@ export default defineComponent({
         .map((p) => ({ publicKey: p, profile: null }));
       this.merchants.unshift(...newMerchants);
       this.$q.localStorage.set("nostrmarket.merchants", this.merchants);
-      this.initNostr(); // todo: improve
+      // this.initNostr(); // todo: improve
     },
 
     updateMarket(market) {
