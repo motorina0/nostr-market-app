@@ -400,6 +400,16 @@
                     >
                     using a shareable <code>naddr</code> identifier
                   </span>
+                  <q-input
+                    class="rounded-pill"
+                    style="width: 100%"
+                    rounded
+                    outlined
+                    clearable
+                    v-model.trim="searchText"
+                    label="Load market profile (naddr)..."
+                  >
+                  </q-input>
                 </li>
               </ul>
             </q-item-label>
