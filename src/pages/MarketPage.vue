@@ -543,6 +543,7 @@ export default defineComponent({
         },
       },
 
+      relaysState: [],
       markets: [],
       merchants: [],
       shoppingCarts: [],
@@ -738,7 +739,7 @@ export default defineComponent({
     await this.handleQueryParams(params);
 
     // Get notes from Nostr
-    await this.initNostr();
+    // await this.initNostr();
 
     await this.listenForIncommingDms(
       this.merchants.map((m) => ({
@@ -747,6 +748,7 @@ export default defineComponent({
       }))
     );
     this.isLoading = false;
+    this.loadRelaysData();
   },
   methods: {
     async handleQueryParams(params) {
@@ -887,7 +889,7 @@ export default defineComponent({
 
     async updateData(events) {
       console.log("### updateData", events);
-      if (events.length < 1) {
+      if (!events?.length) {
         this.$q.notify({
           message: "No matches were found!",
         });
@@ -953,6 +955,69 @@ export default defineComponent({
       // console.log('### this.products', this.products)
     },
 
+    async loadRelaysData() {
+      for (const market of this.markets) {
+        for (const relayUrl of market.relays) {
+          const relayKey = "relay_" + (await hash(relayUrl));
+          this.relaysState[relayKey] = this.relaysState[relayKey] || {
+            relayUrl,
+            connected: false,
+            error: null,
+            merchants: [],
+          };
+          const relayState = this.relaysState[relayKey];
+          relayState.merchants = [
+            ...new Set(relayState.merchants.concat(market.opts.merchants)),
+          ];
+        }
+      }
+      console.log("### loadRelaysData", this.relaysState);
+      Object.values(this.relaysState).forEach((relayState) => {
+        this.connectToRelay(relayState);
+      });
+    },
+
+    async connectToRelay(relayState) {
+      const relay = NostrTools.relayInit(relayState.relayUrl);
+      relay.on("connect", () => {
+        console.log(`### connected to ${relay.url}`);
+        relayState.connected = true;
+        relayState.error = null;
+        this.queryRelay(relay, relayState.merchants);
+      });
+      relay.on("error", (error) => {
+        console.log(`### failed to connect to ${relay.url}`);
+        relayState.connected = false;
+        relayState.error = error;
+      });
+      await relay.connect();
+    },
+
+    async queryRelay(relay, authors) {
+      const events = await relay.list([{ kinds: [0, 30017, 30018], authors }]);
+      console.log("### queryRelay", events);
+      if (!events?.length) return;
+      // await this.updateData(events);
+      await this.processEvents(events);
+      const lastEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
+
+      const sub = relay.sub([
+        { kinds: [0, 5, 30017, 30018], authors, since: lastEvent.created_at },
+      ]);
+      sub.on(
+        "event",
+        (event) => {
+          // this.updateData([event]);
+          this.processEvents([event]);
+        },
+        { id: "masterSub" } //pass ID to cancel previous sub
+      );
+    },
+
+    async processEvents(events) {
+      console.log("### processEvents", events);
+    },
+
     async initNostr() {
       this.isLoading = true;
       this.pool = new NostrTools.SimplePool();
@@ -970,6 +1035,7 @@ export default defineComponent({
       this.poolSubscribe(lastEvent.created_at);
       this.isLoading = false;
     },
+
     async poolSubscribe(since) {
       const authors = this.merchants.map((m) => m.publicKey);
       this.pool
@@ -1018,7 +1084,7 @@ export default defineComponent({
         this.applyUiConfigs(market?.opts);
 
         this.markets = this.markets.filter(
-          (m) => m.d !== market.d && m.pubkey !== market.pubkey
+          (m) => m.d !== market.d || m.pubkey !== market.pubkey
         );
         this.markets.unshift(market);
         this.$q.localStorage.set("nostrmarket.markets", this.markets);
