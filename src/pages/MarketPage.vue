@@ -1088,32 +1088,7 @@ export default defineComponent({
       this.activePage = "loading";
       setTimeout(() => this.setActivePage(pageName), 100);
     },
-    // todo: remove
-    async addRelay(relayUrl) {
-      let relay = String(relayUrl).trim();
 
-      this.relays.add(relay);
-      this.$q.localStorage.set(`nostrmarket.relays`, Array.from(this.relays));
-      this.initNostr(); // todo: improve
-    },
-    // todo: remove
-    removeRelay(relayUrl) {
-      this.relays.delete(relayUrl);
-      this.relays = new Set(Array.from(this.relays));
-      this.$q.localStorage.set(`nostrmarket.relays`, Array.from(this.relays));
-      this.initNostr(); // todo: improve
-    },
-
-    // todo: remove
-    addMerchant(publicKey) {
-      this.merchants.unshift({
-        publicKey,
-        profile: null,
-      });
-      this.$q.localStorage.set("nostrmarket.merchants", this.merchants);
-      this.initNostr(); // todo: improve
-    },
-    // todo: remove
     addMerchants(publicKeys = []) {
       const merchantsPubkeys = this.merchants.map((m) => m.publicKey);
 
@@ -1124,14 +1099,7 @@ export default defineComponent({
       this.$q.localStorage.set("nostrmarket.merchants", this.merchants);
       this.initNostr(); // todo: improve
     },
-    // todo: remove
-    removeMerchant(publicKey) {
-      this.merchants = this.merchants.filter((m) => m.publicKey !== publicKey);
-      this.$q.localStorage.set("nostrmarket.merchants", this.merchants);
-      this.products = this.products.filter((p) => p.pubkey !== publicKey);
-      this.stalls = this.stalls.filter((p) => p.pubkey !== publicKey);
-      this.initNostr(); // todo: improve
-    },
+
     updateMarket(market) {
       const { d, pubkey } = market;
       this.markets = this.markets.filter(
@@ -1141,7 +1109,6 @@ export default defineComponent({
       this.$q.localStorage.set("nostrmarket.markets", this.markets);
     },
     deleteMarket(market) {
-      console.log("### deleteMarket", market);
       const { d, pubkey } = market;
       this.markets = this.markets.filter(
         (m) => m.d !== d || m.pubkey !== pubkey
