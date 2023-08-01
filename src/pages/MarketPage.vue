@@ -175,7 +175,13 @@
                     >
                   </q-item-section>
                   <q-item-section side top>
-                    <q-btn color="green" outline>New</q-btn>
+                    <q-btn
+                      @click="createMarket(true)"
+                      color="green"
+                      outline
+                      v-close-popup
+                      >New</q-btn
+                    >
                   </q-item-section>
                 </q-item>
                 <q-separator />
@@ -860,7 +866,7 @@ export default defineComponent({
       this.accountDialog.show = true;
     },
 
-    async updateUiConfig(data = { opts: {}}) {
+    async updateUiConfig(data = { opts: {} }) {
       const { name, about, ui } = data.opts;
       this.config = {
         ...this.config,
@@ -976,7 +982,7 @@ export default defineComponent({
         const { type, data } = NostrTools.nip19.decode(naddr);
         if (type !== "naddr" || data.kind !== 30019) return; // just double check
 
-        let market = {
+        const market = {
           d: data.identifier,
           pubkey: data.pubkey,
           relays: data.relays,
@@ -1119,15 +1125,16 @@ export default defineComponent({
     updateMarket(market) {
       const { d, pubkey } = market;
       this.markets = this.markets.filter(
-        (m) => m.d !== d && m.pubkey !== pubkey
+        (m) => m.d !== d || m.pubkey !== pubkey
       );
-      this.markets.unshift(market)
-      this.$q.localStorage.set("nostrmarket.markets", this.markets)
+      this.markets.unshift(market);
+      this.$q.localStorage.set("nostrmarket.markets", this.markets);
     },
     deleteMarket(market) {
+      console.log("### deleteMarket", market);
       const { d, pubkey } = market;
       this.markets = this.markets.filter(
-        (m) => m.d !== d && m.pubkey !== pubkey
+        (m) => m.d !== d || m.pubkey !== pubkey
       );
       this.$q.localStorage.set("nostrmarket.markets", this.markets);
       if (
@@ -1573,6 +1580,19 @@ export default defineComponent({
     showMarketConfig(index) {
       this.activeMarket = this.markets[index];
       this.transitToPage("market-config");
+    },
+
+    createMarket(navigateToConfig) {
+      this.markets.unshift({
+        d: crypto.randomUUID(),
+        pubkey: this.account.pubkey || "",
+        relays: [],
+        selected: true,
+      });
+      this.$q.localStorage.set("nostrmarket.markets", this.markets);
+      if (navigateToConfig === true) {
+        this.showMarketConfig(0);
+      }
     },
   },
 });
