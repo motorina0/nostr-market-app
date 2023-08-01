@@ -373,13 +373,15 @@ export default defineComponent({
       const publicKey = isValidKeyHex(this.merchantPubkey)
         ? this.merchantPubkey
         : NostrTools.nip19.decode(this.merchantPubkey).data;
-      this.marketData.opts.merchants.push(publicKey)
-      this.updateMarketData()
+      this.marketData.opts.merchants.push(publicKey);
+      this.updateMarketData();
       this.merchantPubkey = null;
     },
     removeMerchant: async function (publicKey) {
-      this.marketData.opts.merchants = this.marketData.opts.merchants.filter(m => m !== publicKey)
-      this.updateMarketData()
+      this.marketData.opts.merchants = this.marketData.opts.merchants.filter(
+        (m) => m !== publicKey
+      );
+      this.updateMarketData();
     },
     addRelay: async function () {
       const relayUrl = (this.relayUrl || "").trim();
@@ -395,8 +397,8 @@ export default defineComponent({
       }
       try {
         new URL(relayUrl);
-        this.marketData.relays.push(relayUrl)
-        this.updateMarketData()
+        this.marketData.relays.push(relayUrl);
+        this.updateMarketData();
       } catch (error) {
         $q.notify({
           timeout: 5000,
@@ -409,8 +411,10 @@ export default defineComponent({
       this.relayUrl = null;
     },
     removeRelay: async function (relay) {
-      this.marketData.relays = this.marketData.relays.filter(r => r !== relay)
-      this.updateMarketData()
+      this.marketData.relays = this.marketData.relays.filter(
+        (r) => r !== relay
+      );
+      this.updateMarketData();
     },
     updateMarketData: function () {
       setTimeout(() => {
@@ -435,6 +439,9 @@ export default defineComponent({
       ...this.marketData,
       ...JSON.parse(JSON.stringify(this.market || {})),
     };
+    if (!this.readNotes?.merchants) {
+      this.tab = "merchants";
+    }
   },
 });
 </script>
