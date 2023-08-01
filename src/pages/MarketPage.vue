@@ -341,7 +341,7 @@
       @add-to-cart="addProductToCart"
     ></customer-stall>
 
-    <div v-else-if="!merchants?.length">
+    <div v-else-if="!markets?.length">
       <q-list class="q-mt-md" bordered>
         <q-item>
           <q-item-section class="q-mt-sm q-ml-lg">
@@ -572,6 +572,7 @@ export default defineComponent({
       activeMarket: null,
       activeStall: null,
       activeProduct: null,
+
       pool: null,
       config: {
         opts: null,
