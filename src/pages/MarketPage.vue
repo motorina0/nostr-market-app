@@ -36,7 +36,7 @@
             icon="travel_explore"
             flat
             size="lg"
-            @click="navigateTo('search-nostr')"
+            @click="navigateTo('product-filter')"
             ><q-tooltip>Search for products on Nostr</q-tooltip></q-btn
           >
           <!-- <q-btn
@@ -244,6 +244,11 @@
             icon="settings"
           ></q-breadcrumbs-el>
           <q-breadcrumbs-el
+            v-if="activePage === 'product-filter'"
+            label="Filter"
+            icon="travel_explore"
+          ></q-breadcrumbs-el>
+          <q-breadcrumbs-el
             v-if="activePage === 'user-config'"
             label="User Config"
             icon="perm_identity"
@@ -282,6 +287,9 @@
         <q-spinner-dots color="primary" size="xl" />
       </div>
     </div>
+    <product-filter
+      v-else-if="activePage === 'product-filter'"
+    ></product-filter>
     <market-config
       v-else-if="activeMarket && activePage === 'market-config'"
       :market="activeMarket"
@@ -527,6 +535,7 @@ import CustomerMarket from "components/CustomerMarket.vue";
 import CustomerOrders from "components/CustomerOrders.vue";
 import CustomerStall from "components/CustomerStall.vue";
 import CustomerStallList from "components/CustomerStallList.vue";
+import ProductFilter from "components/ProductFilter.vue";
 
 export default defineComponent({
   name: "MarketPage",
