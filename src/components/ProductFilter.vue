@@ -39,7 +39,7 @@
             multiple
             use-chips
             stack-label
-            hint="Select Categories"
+            hint="Any of these Categories"
             label="Categories"
           ></q-select>
         </div>
@@ -53,28 +53,18 @@
             multiple
             use-chips
             stack-label
-            hint="Select Merchant"
+            hint="Any of these Merchant"
             label="Merchants"
           ></q-select>
         </div>
       </div>
     </q-card-section>
-    <q-card-section>
-      <div class="row q-mt-md q-ml-md q-pr-md">
-        <div class="col-12">
-          <q-checkbox
-            v-model="filterData.freeShippingOnly"
-            label="Free Shiping Only"
-            size="sm"
-            class="q-mt-sm"
-          ></q-checkbox>
-        </div>
-      </div>
-    </q-card-section>
     <q-separator />
     <q-card-actions align="right">
-      <q-btn @click=clear() flat color="grey"> Clear </q-btn>
-      <q-btn @click=search() flat color="primary" class="q-mr-md"> Search </q-btn>
+      <q-btn @click="clear()" flat color="grey"> Clear </q-btn>
+      <q-btn @click="search()" flat color="primary" class="q-mr-md">
+        Search
+      </q-btn>
     </q-card-actions>
   </q-card>
 </template>
@@ -102,7 +92,6 @@ export default defineComponent({
         priceTo: null,
         categories: [],
         merchants: [],
-        freeShippingOnly: false,
       },
     };
   },
@@ -121,12 +110,11 @@ export default defineComponent({
         priceTo: null,
         categories: [],
         merchants: [],
-        freeShippingOnly: false,
       };
-      this.$emit('filter', this.filterData)
+      this.$emit("filter", this.filterData);
     },
     search: function () {
-      this.$emit('filter', this.filterData)
+      this.$emit("filter", this.filterData);
     },
   },
   created: async function () {
@@ -142,7 +130,9 @@ export default defineComponent({
       const merchantProfile = this.profiles.find((p) => p.pubkey === m);
       if (merchantProfile) {
         return {
-          label: merchantProfile.name,
+          label:
+            merchantProfile.name +
+            ` (${m.substring(0, 10)}...${m.substring(m.length - 10)})`,
           value: m,
         };
       }
