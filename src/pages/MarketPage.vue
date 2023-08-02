@@ -968,6 +968,7 @@ export default defineComponent({
             connected: false,
             error: null,
             merchants: [],
+            lastEventAt: 0,
           };
           const relayData = this.relaysData[relayKey];
           relayData.merchants = [
@@ -976,40 +977,58 @@ export default defineComponent({
         }
       }
       console.log("### loadRelaysData", this.relaysData);
-      Object.values(this.relaysData).forEach(this.connectToRelay);
+      Object.keys(this.relaysData).forEach(this.connectToRelay);
     },
 
-    async connectToRelay(relayData) {
+    async connectToRelay(relayKey) {
+      const relayData = this.relaysData[relayKey];
       try {
-        const relay = NostrTools.relayInit(relayData.relayUrl);
-        relay.on("connect", () => {
+        relayData.relay = NostrTools.relayInit(relayData.relayUrl);
+        relayData.relay.on("connect", () => {
           relayData.connected = true;
           relayData.error = null;
-          this.queryRelay(relay, relayData.merchants);
+          this.queryRelay(relayKey);
         });
-        relay.on("error", (error) => {
-          console.warn(`Error by relat ${relay.url}`);
+        relayData.relay.on("error", (error) => {
+          console.warn(`Error by relay ${relayData.relayUrl}`);
           relayData.connected = false;
           relayData.error = error;
         });
-        await relay.connect();
+        await relayData.relay.connect();
       } catch (error) {
+        relayData.connected = false;
         relayData.error = `${error}`;
         console.warn(`Failed to connect to ${relayData.relayUrl}`);
       }
     },
 
-    async queryRelay(relay, authors) {
-      const events = await relay.list([{ kinds: [0, 30017, 30018], authors }]);
-      console.log("### queryRelay", events);
-      if (!events?.length) return;
-      await this.processEvents(events, relay.url);
-      const lastEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
+    async requeryRelay(relayKey) {
+      const relayData = this.relaysData[relayKey];
+      if (relayData.connected) {
+        relayData.sub?.unsub();
+        this.queryRelay(relayKey);
+      }
+    },
 
-      const sub = relay.sub([
-        { kinds: [0, 5, 30017, 30018], authors, since: lastEvent.created_at },
+    async queryRelay(relayKey) {
+      const relayData = this.relaysData[relayKey];
+      const authors = relayData.merchants;
+      const events = await relayData.relay.list([
+        { kinds: [0, 30017, 30018], authors, since: relayData.lastEventAt + 1 },
       ]);
-      sub.on(
+      console.log("### queryRelay.events", relayData.relayUrl, events);
+
+      if (!events?.length) return;
+      await this.processEvents(events, relayData.relayUrl);
+
+      relayData.lastEventAt = events.sort(
+        (a, b) => b.created_at - a.created_at
+      )[0].created_at;
+
+      relayData.sub = relayData.relay.sub([
+        { kinds: [0, 5, 30017, 30018], authors, since: relayData.lastEventAt + 1 },
+      ]);
+      relayData.sub.on(
         "event",
         (event) => {
           this.processEvents([event], relay.url);
@@ -1252,12 +1271,57 @@ export default defineComponent({
 
     updateMarket(market) {
       const { d, pubkey } = market;
+
+      const existingMarket =
+        this.markets.find((m) => m.d === d && m.pubkey === pubkey) || {};
+
+      const newMerchants = market.opts?.merchants.filter(
+        (m) => !existingMarket.opts?.merchants.includes(m)
+      );
+      const removedMerchants = existingMarket.opts?.merchants.filter(
+        (m) => !market.opts?.merchants.includes(m)
+      );
+
+      console.log("### market", market);
+      console.log("### existingMarket", existingMarket);
+      console.log("### newMerchants", newMerchants);
+      console.log("### removedMerchants", removedMerchants);
+
       this.markets = this.markets.filter(
         (m) => m.d !== d || m.pubkey !== pubkey
       );
       this.markets.unshift(market);
       this.$q.localStorage.set("nostrmarket.markets", this.markets);
+
+      removedMerchants.forEach(this.handleRemoveMerchant);
     },
+
+    handleNewMerchant(market, merchantPubkey) {},
+    handleRemoveMerchant(merchantPubkey) {
+      const marketWithMerchant = this.markets.find((m) =>
+        m.opts.merchants.find((mr) => mr === merchantPubkey)
+      );
+      // other markets still have this merchant
+      if (marketWithMerchant) return;
+
+      // remove all products and stalls from that merchant
+      this.products = this.products.filter((p) => p.pubkey !== merchantPubkey);
+      this.stalls = this.stalls.filter((s) => s.pubkey !== merchantPubkey);
+
+      this.removeSubscriptionsForMerchant(merchantPubkey);
+    },
+    removeSubscriptionsForMerchant(merchantPubkey) {
+      Object.keys(this.relaysData).forEach((relayKey) => {
+        const relayData = this.relaysData[relayKey];
+        if (!relayData.merchants.includes(merchantPubkey)) return;
+        relayData.merchants = relayData.merchants.filter(
+          (m) => m !== merchantPubkey
+        );
+
+        this.requeryRelay(relayKey);
+      });
+    },
+
     deleteMarket(market) {
       const { d, pubkey } = market;
       this.markets = this.markets.filter(
