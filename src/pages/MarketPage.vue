@@ -1031,14 +1031,14 @@ export default defineComponent({
       relayData.sub.on(
         "event",
         (event) => {
-          this.processEvents([event], relay.url);
+          this.processEvents([event], relayData.relay.url);
         },
         { id: "masterSub" } //pass ID to cancel previous sub
       );
     },
 
     processEvents(events, relayUrl) {
-      console.log("### processEvents", events);
+      console.log("### processEvents", relayUrl, events);
       if (!events?.length) return;
       events = events
         .filter((e) => !this.processedEventIds.includes(e.id))
@@ -1100,6 +1100,7 @@ export default defineComponent({
         id: e.d,
         categories: e.t,
         eventId: e.id,
+        createdAt: e.created_at,
         relayUrls: [e.relayUrl],
       });
     },
