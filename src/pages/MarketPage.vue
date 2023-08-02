@@ -959,25 +959,30 @@ export default defineComponent({
       // console.log('### this.products', this.products)
     },
 
+    async toRelayKey(relayUrl) {
+      return "relay_" + (await hash(relayUrl));
+    },
     async loadRelaysData() {
       for (const market of this.markets) {
         for (const relayUrl of market.relays) {
-          const relayKey = "relay_" + (await hash(relayUrl));
-          this.relaysData[relayKey] = this.relaysData[relayKey] || {
-            relayUrl,
-            connected: false,
-            error: null,
-            merchants: [],
-            lastEventAt: 0,
-          };
-          const relayData = this.relaysData[relayKey];
-          relayData.merchants = [
-            ...new Set(relayData.merchants.concat(market.opts.merchants)),
-          ];
+          await this.loadRelayData(relayUrl, market.opts.merchants);
         }
       }
       console.log("### loadRelaysData", this.relaysData);
       Object.keys(this.relaysData).forEach(this.connectToRelay);
+    },
+
+    async loadRelayData(relayUrl, merchants) {
+      const relayKey = await this.toRelayKey(relayUrl);
+      this.relaysData[relayKey] = this.relaysData[relayKey] || {
+        relayUrl,
+        connected: false,
+        error: null,
+        merchants: [],
+        lastEventAt: 0,
+      };
+      const relayData = this.relaysData[relayKey];
+      relayData.merchants = [...new Set(relayData.merchants.concat(merchants))];
     },
 
     async connectToRelay(relayKey) {
@@ -1287,6 +1292,12 @@ export default defineComponent({
       const removedMerchants = existingMarket.opts?.merchants.filter(
         (m) => !market.opts?.merchants.includes(m)
       );
+      const newRelays = market.relays.filter(
+        (r) => !existingMarket.relays.includes(r)
+      );
+      const removedRelays = existingMarket.relays.filter(
+        (r) => !market.relays.includes(r)
+      );
 
       this.markets = this.markets.filter(
         (m) => m.d !== d || m.pubkey !== pubkey
@@ -1296,6 +1307,12 @@ export default defineComponent({
 
       removedMerchants.forEach(this.handleRemoveMerchant);
       newMerchants.forEach((m) => this.handleNewMerchant(market, m));
+
+      console.log("### newRelays", newRelays);
+      console.log("### removedRelays", removedRelays);
+
+      newRelays.forEach((r) => this.handleNewRelay(market, r));
+      removedRelays.forEach(this.handleRemovedRelay);
     },
 
     handleNewMerchant(market, merchantPubkey) {
@@ -1320,6 +1337,32 @@ export default defineComponent({
         relayData.merchants.push(merchantPubkey);
         this.requeryRelay(relayKey);
       });
+    },
+    async handleNewRelay(market, relayUrl) {
+      const relayKey = await this.toRelayKey(relayUrl);
+      if (this.relaysData[relayKey]) {
+        console.log("### handleNewRelay exists");
+        const relayData = this.relaysData[relayKey];
+        const events = await relayData.relay.list([
+          { kinds: [0, 30017, 30018], authors: market.opts.merchants },
+        ]);
+        if (events.length) {
+          console.log("### new relay events", events.length);
+          const lastEventAt = events.sort(
+            (a, b) => b.created_at - a.created_at
+          )[0].created_at;
+
+          relayData.lastEventAt = Math.max(relayData.lastEventAt, lastEventAt);
+          await this.processEvents(events, relayData.relayUrl);
+        }
+        relayData.merchants = [
+          ...new Set(relayData.merchants.concat(market.opts.merchants)),
+        ];
+        this.requeryRelay(relayKey);
+      } else {
+        await this.loadRelayData(relayUrl, market.opts.merchants);
+        await this.connectToRelay(relayKey);
+      }
     },
     handleRemoveMerchant(merchantPubkey) {
       const marketWithMerchant = this.markets.find((m) =>
@@ -1358,6 +1401,17 @@ export default defineComponent({
         this.requeryRelay(relayKey);
       });
     },
+    handleRemovedRelay(relayUrl) {
+      // todo: later
+      // leave products and stalls alone
+      const marketWitRelay = this.markets.find((m) =>
+        m.relays.find((r) => r === relayUrl)
+      );
+      if (!marketWitRelay) {
+        // relay no longer exists
+      }
+      console.log("### marketWitRelay", marketWitRelay);
+    },
 
     deleteMarket(market) {
       const { d, pubkey } = market;
@@ -1374,6 +1428,7 @@ export default defineComponent({
         this.navigateTo("market");
         this.updateUiConfig(this.markets[0]);
       }
+      // todo: remove merchants
     },
     addProductToCart(item) {
       let stallCart = this.shoppingCarts.find((s) => s.id === item.stall_id);
