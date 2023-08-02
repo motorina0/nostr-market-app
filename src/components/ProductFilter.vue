@@ -47,8 +47,12 @@
       <div class="row q-mt-md q-ml-md q-pr-md">
         <div class="col-12">
           <q-select
+            :options="merchantProfiles"
             v-model="filterData.merchants"
             filled
+            multiple
+            use-chips
+            stack-label
             hint="Select Merchant"
             label="Merchants"
           ></q-select>
@@ -69,8 +73,8 @@
     </q-card-section>
     <q-separator />
     <q-card-actions align="right">
-      <q-btn flat color="grey"> Clear </q-btn>
-      <q-btn flat color="primary" class="q-mr-md"> Search </q-btn>
+      <q-btn @click=clear() flat color="grey"> Clear </q-btn>
+      <q-btn @click=search() flat color="primary" class="q-mr-md"> Search </q-btn>
     </q-card-actions>
   </q-card>
 </template>
@@ -80,10 +84,18 @@ import { defineComponent } from "vue";
 
 export default defineComponent({
   name: "ProductFilter",
-  props: ["filter", "currencies", "categories", "merchants", "stalls"],
+  props: [
+    "filter",
+    "currencies",
+    "categories",
+    "merchants",
+    "profiles",
+    "stalls",
+  ],
 
   data: function () {
     return {
+      merchantProfiles: [],
       filterData: {
         currency: null,
         priceFrom: 0,
@@ -111,13 +123,13 @@ export default defineComponent({
         merchants: [],
         freeShippingOnly: false,
       };
+      this.$emit('filter', this.filterData)
+    },
+    search: function () {
+      this.$emit('filter', this.filterData)
     },
   },
   created: async function () {
-    console.log("### categories", this.categories);
-    console.log("### currencies", this.currencies);
-
-
     this.filterData = {
       ...this.filterData,
       ...JSON.parse(JSON.stringify(this.filter || {})),
@@ -125,6 +137,17 @@ export default defineComponent({
     this.filterData.categories = (this.categories || [])
       .filter((c) => c.selected)
       .map((c) => c.category);
+
+    this.merchantProfiles = this.merchants.map((m) => {
+      const merchantProfile = this.profiles.find((p) => p.pubkey === m);
+      if (merchantProfile) {
+        return {
+          label: merchantProfile.name,
+          value: m,
+        };
+      }
+      return { label: m, value: m };
+    });
   },
 });
 </script>

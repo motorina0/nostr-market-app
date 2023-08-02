@@ -291,6 +291,8 @@
       v-else-if="activePage === 'product-filter'"
       :categories="allCategories"
       :currencies="allCurrencies"
+      :merchants="allMerchants"
+      :profiles="profiles"
     ></product-filter>
     <market-config
       v-else-if="activeMarket && activePage === 'market-config'"
@@ -584,6 +586,7 @@ export default defineComponent({
       stalls: [],
       products: [],
       orders: {},
+      profiles: [],
 
       bannerImage: null,
       logoImage: null,
@@ -744,6 +747,9 @@ export default defineComponent({
       const currencies = this.products.map((p) => p.currency.toUpperCase());
       return [...new Set(currencies)];
     },
+    allMerchants() {
+      return this.markets.map((m) => m.opts.merchants).flat();
+    },
   },
 
   async created() {
@@ -806,6 +812,9 @@ export default defineComponent({
         this.$q.localStorage.getItem("nostrmarket.merchants") || [];
       this.shoppingCarts =
         this.$q.localStorage.getItem("nostrmarket.shoppingCarts") || [];
+
+      this.profiles =
+        this.$q.localStorage.getItem("nostrmarket.profiles") || [];
 
       this.account =
         this.$q.localStorage.getItem("nostrmarket.account") || null;
@@ -1070,6 +1079,7 @@ export default defineComponent({
         .map((e) => ({ ...e, relayUrl }))
         .map(eventToObj);
 
+      events.filter((e) => e.kind === 0).forEach(this.processProfileEvents);
       events.filter((e) => e.kind === 30017).forEach(this.processStallEvents);
       events.filter((e) => e.kind === 30018).forEach(this.processProductEvents);
 
@@ -1077,6 +1087,16 @@ export default defineComponent({
 
       console.log("### products: ", JSON.stringify(this.products));
       console.log("### stalls: ", this.stalls);
+    },
+
+    processProfileEvents(e) {
+      try {
+        this.profiles = this.profiles.filter((p) => p.pubkey !== e.pubkey);
+        this.profiles.push({ pubkey: e.pubkey, ...e.content });
+        this.$q.localStorage.set("nostrmarket.profiles", this.profiles);
+      } catch (error) {
+        console.warn(error)
+      }
     },
 
     processStallEvents(e) {
