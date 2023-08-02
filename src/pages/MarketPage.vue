@@ -289,6 +289,8 @@
     </div>
     <product-filter
       v-else-if="activePage === 'product-filter'"
+      :categories="allCategories"
+      :currencies="allCurrencies"
     ></product-filter>
     <market-config
       v-else-if="activeMarket && activePage === 'market-config'"
@@ -737,6 +739,10 @@ export default defineComponent({
           selected: this.filterCategories.indexOf(category) !== -1,
         }))
         .sort((a, b) => b.count - a.count);
+    },
+    allCurrencies() {
+      const currencies = this.products.map((p) => p.currency);
+      return [...new Set(currencies)];
     },
   },
 
