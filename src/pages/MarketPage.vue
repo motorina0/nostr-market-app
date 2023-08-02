@@ -1060,7 +1060,7 @@ export default defineComponent({
 
       this.processedEventIds.push(...events.map((e) => e.id));
 
-      console.log("### products: ", this.products);
+      console.log("### products: ", JSON.stringify(this.products));
       console.log("### stalls: ", this.stalls);
     },
 
