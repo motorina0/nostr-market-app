@@ -1018,15 +1018,20 @@ export default defineComponent({
       ]);
       console.log("### queryRelay.events", relayData.relayUrl, events);
 
-      if (!events?.length) return;
-      await this.processEvents(events, relayData.relayUrl);
+      if (events?.length) {
+        relayData.lastEventAt = events.sort(
+          (a, b) => b.created_at - a.created_at
+        )[0].created_at;
 
-      relayData.lastEventAt = events.sort(
-        (a, b) => b.created_at - a.created_at
-      )[0].created_at;
+        await this.processEvents(events, relayData.relayUrl);
+      }
 
       relayData.sub = relayData.relay.sub([
-        { kinds: [0, 5, 30017, 30018], authors, since: relayData.lastEventAt + 1 },
+        {
+          kinds: [0, 5, 30017, 30018],
+          authors,
+          since: relayData.lastEventAt + 1,
+        },
       ]);
       relayData.sub.on(
         "event",
@@ -1050,8 +1055,8 @@ export default defineComponent({
 
       this.processedEventIds.push(...events.map((e) => e.id));
 
-      console.log("### stalls", this.stalls);
-      console.log("### produts", this.products);
+      console.log("### products: ", this.products);
+      console.log("### stalls: ", this.stalls);
     },
 
     processStallEvents(e) {
@@ -1283,11 +1288,6 @@ export default defineComponent({
         (m) => !market.opts?.merchants.includes(m)
       );
 
-      console.log("### market", market);
-      console.log("### existingMarket", existingMarket);
-      console.log("### newMerchants", newMerchants);
-      console.log("### removedMerchants", removedMerchants);
-
       this.markets = this.markets.filter(
         (m) => m.d !== d || m.pubkey !== pubkey
       );
@@ -1295,15 +1295,51 @@ export default defineComponent({
       this.$q.localStorage.set("nostrmarket.markets", this.markets);
 
       removedMerchants.forEach(this.handleRemoveMerchant);
+      newMerchants.forEach((m) => this.handleNewMerchant(market, m));
     },
 
-    handleNewMerchant(market, merchantPubkey) {},
+    handleNewMerchant(market, merchantPubkey) {
+      Object.keys(this.relaysData).forEach(async (relayKey) => {
+        const relayData = this.relaysData[relayKey];
+        console.log("### handleNewMerchant", relayData);
+        if (!market.relays.includes(relayData.relayUrl)) return;
+        if (relayData.merchants.includes(merchantPubkey)) return;
+
+        const events = await relayData.relay.list([
+          { kinds: [0, 30017, 30018], authors: [merchantPubkey] },
+        ]);
+        if (events.length) {
+          const lastEventAt = events.sort(
+            (a, b) => b.created_at - a.created_at
+          )[0].created_at;
+
+          relayData.lastEventAt = Math.max(relayData.lastEventAt, lastEventAt);
+          await this.processEvents(events, relayData.relayUrl);
+        }
+
+        relayData.merchants.push(merchantPubkey);
+        this.requeryRelay(relayKey);
+      });
+    },
     handleRemoveMerchant(merchantPubkey) {
       const marketWithMerchant = this.markets.find((m) =>
         m.opts.merchants.find((mr) => mr === merchantPubkey)
       );
       // other markets still have this merchant
       if (marketWithMerchant) return;
+
+      const removedProductEventIds = this.products
+        .filter((p) => p.pubkey === merchantPubkey)
+        .map((p) => p.eventId);
+      const removedStallEventIds = this.stalls
+        .filter((s) => s.pubkey === merchantPubkey)
+        .map((s) => s.eventId);
+      const removedEventIds =
+        removedProductEventIds.concat(removedStallEventIds);
+      console.log("### removedEventIds", removedEventIds);
+      this.processedEventIds = this.processedEventIds.filter(
+        (id) => !removedEventIds.includes(id)
+      );
 
       // remove all products and stalls from that merchant
       this.products = this.products.filter((p) => p.pubkey !== merchantPubkey);
