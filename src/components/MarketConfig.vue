@@ -418,20 +418,23 @@ export default defineComponent({
     },
     updateMarketData: function () {
       setTimeout(() => {
-        this.$emit("market-update", this.marketData);
+        this.$emit("market-update", this.cloneMarketData());
       });
     },
     publishNaddr() {
       this.$emit("publish-naddr");
     },
     deleteMarket() {
-      this.$emit("delete-market", this.marketData);
+      this.$emit("delete-market", this.cloneMarketData());
     },
     applyLookAndFeel() {
-      this.$emit("apply-ui", this.marketData);
+      this.$emit("apply-ui", this.cloneMarketData());
     },
     markNoteAsRead(noteId) {
       this.$emit("note-read", noteId);
+    },
+    cloneMarketData() {
+      return JSON.parse(JSON.stringify(this.marketData));
     },
   },
   created: async function () {
