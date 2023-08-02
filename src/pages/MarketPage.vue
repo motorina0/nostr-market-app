@@ -741,7 +741,7 @@ export default defineComponent({
         .sort((a, b) => b.count - a.count);
     },
     allCurrencies() {
-      const currencies = this.products.map((p) => p.currency);
+      const currencies = this.products.map((p) => p.currency.toUpperCase());
       return [...new Set(currencies)];
     },
   },

@@ -4,7 +4,7 @@
       <div class="row q-mt-md q-ml-md q-pr-md">
         <div class="col-md-4 col-sm-12 col-xs-12 q-pt-sm">
           <q-select
-            :options="currencies"
+            :options="[...currencies].sort()"
             v-model="filterData.currency"
             filled
             hint="Select Currency"
@@ -33,7 +33,7 @@
       <div class="row q-mt-md q-ml-md q-pr-md">
         <div class="col-12">
           <q-select
-            :options="categories.map((c) => c.category)"
+            :options="[...categories.map((c) => c.category).sort()]"
             v-model="filterData.categories"
             filled
             multiple
@@ -116,6 +116,7 @@ export default defineComponent({
   created: async function () {
     console.log("### categories", this.categories);
     console.log("### currencies", this.currencies);
+
 
     this.filterData = {
       ...this.filterData,
