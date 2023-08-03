@@ -2,16 +2,16 @@
   <q-card>
     <q-card-section>
       <div class="row q-mt-md q-ml-md q-pr-md">
-        <div class="col-md-4 col-sm-12 col-xs-12 q-pt-sm">
+        <div class="col-md-3 col-sm-12 col-xs-12 q-pt-sm">
           <q-select
             :options="[...currencies].sort()"
             v-model="filterData.currency"
             filled
-            hint="Select Currency"
+            hint="Only this Currency"
             label="Currency"
           ></q-select>
         </div>
-        <div class="col-md-4 col-sm-12 col-xs-12 q-pt-sm q-pl-md">
+        <div class="col-md-3 col-sm-12 col-xs-12 q-pt-sm q-pl-md">
           <q-input
             v-model="filterData.priceFrom"
             type="number"
@@ -19,7 +19,7 @@
             hint="Price Starting At"
           ></q-input>
         </div>
-        <div class="col-md-4 col-sm-12 col-xs-12 q-pt-sm q-pl-lg">
+        <div class="col-md-3 col-sm-12 col-xs-12 q-pt-sm q-pl-lg">
           <q-input
             v-model="filterData.priceTo"
             type="number"
@@ -27,11 +27,21 @@
             hint="Maximum Price"
           ></q-input>
         </div>
+        <div class="col-md-3 col-sm-12 col-xs-12">
+          <q-btn
+            @click="clearPrice()"
+            flat
+            color="grey"
+            class="float-right q-mt-sm"
+          >
+            Clear</q-btn
+          >
+        </div>
       </div>
     </q-card-section>
     <q-card-section>
       <div class="row q-mt-md q-ml-md q-pr-md">
-        <div class="col-12">
+        <div class="col-9">
           <q-select
             :options="[...categories.map((c) => c.category).sort()]"
             v-model="filterData.categories"
@@ -43,9 +53,19 @@
             label="Categories"
           ></q-select>
         </div>
+        <div class="col-3">
+          <q-btn
+            @click="clearCategories()"
+            flat
+            color="grey"
+            class="float-right q-mt-sm"
+          >
+            Clear</q-btn
+          >
+        </div>
       </div>
       <div class="row q-mt-md q-ml-md q-pr-md">
-        <div class="col-12">
+        <div class="col-9">
           <q-select
             :options="merchantProfiles"
             v-model="filterData.merchants"
@@ -53,16 +73,56 @@
             multiple
             use-chips
             stack-label
-            hint="Any of these Merchant"
+            hint="Only these Merchant"
             label="Merchants"
           ></q-select>
+        </div>
+        <div class="col-3">
+          <q-btn
+            @click="clearMerchants()"
+            flat
+            color="grey"
+            class="float-right q-mt-sm"
+          >
+            Clear</q-btn
+          >
+        </div>
+      </div>
+      <div class="row q-mt-md q-ml-md q-pr-md">
+        <div class="col-9">
+          <q-select
+            :options="stalls.map((s) => ({ label: s.name, value: s.id }))"
+            v-model="filterData.stalls"
+            filled
+            multiple
+            use-chips
+            stack-label
+            hint="Only these Stalls"
+            label="Stalls"
+          ></q-select>
+        </div>
+        <div class="col-3">
+          <q-btn
+            @click="clearStalls()"
+            flat
+            color="grey"
+            class="float-right q-mt-sm"
+          >
+            Clear</q-btn
+          >
         </div>
       </div>
     </q-card-section>
     <q-separator />
     <q-card-actions align="right">
-      <q-btn @click="clear()" flat color="grey"> Clear </q-btn>
-      <q-btn @click="search()" flat icon="search" color="primary" class="q-mr-md">
+      <q-btn @click="clear()" flat color="grey"> Clear All Filters</q-btn>
+      <q-btn
+        @click="search()"
+        flat
+        icon="search"
+        color="primary"
+        class="q-mr-md"
+      >
         Search
       </q-btn>
     </q-card-actions>
@@ -92,6 +152,7 @@ export default defineComponent({
         priceTo: null,
         categories: [],
         merchants: [],
+        stalls: [],
       },
     };
   },
@@ -110,14 +171,30 @@ export default defineComponent({
         priceTo: null,
         categories: [],
         merchants: [],
+        stalls: [],
       };
       this.$emit("filter", this.filterData);
+    },
+    clearPrice() {
+      this.filterData.currency = null;
+      this.filterData.priceFrom = 0;
+      this.filterData.priceTo = null;
+    },
+    clearMerchants() {
+      this.filterData.merchants = [];
+    },
+    clearCategories() {
+      this.filterData.categories = [];
+    },
+    clearStalls() {
+      this.filterData.stalls = [];
     },
     search: function () {
       this.$emit("filter", this.filterData);
     },
   },
   created: async function () {
+    console.log("### stalls", this.stalls);
     this.filterData = {
       ...this.filterData,
       ...JSON.parse(JSON.stringify(this.filter || {})),

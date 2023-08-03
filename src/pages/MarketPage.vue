@@ -281,20 +281,22 @@
     </div>
 
     <q-separator class="q-mt-sm q-mb-md"></q-separator>
-
+    <product-filter
+      v-if="activePage === 'product-filter'"
+      :categories="allCategories"
+      :currencies="allCurrencies"
+      :merchants="allMerchants"
+      :stalls="stalls"
+      :profiles="profiles"
+      @filter="handleFilterData"
+      class="q-mb-md"
+    ></product-filter>
     <div v-if="activePage === 'loading'" class="row q-mb-sm">
       <div class="col-12 text-center">
         <q-spinner-dots color="primary" size="xl" />
       </div>
     </div>
-    <product-filter
-      v-else-if="activePage === 'product-filter'"
-      :categories="allCategories"
-      :currencies="allCurrencies"
-      :merchants="allMerchants"
-      :profiles="profiles"
-      @filter="handleFilterData"
-    ></product-filter>
+
     <market-config
       v-else-if="activeMarket && activePage === 'market-config'"
       :market="activeMarket"
