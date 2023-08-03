@@ -41,8 +41,7 @@
             <q-badge v-if="filterCount" color="secondary" floating>
               <span v-text="filterCount"></span>
             </q-badge>
-            </q-btn
-          >
+          </q-btn>
           <!-- <q-btn
             color="gray"
             icon="settings"
@@ -715,11 +714,10 @@ export default defineComponent({
       if (this.filterData.priceTo) total++;
       if (this.filterData.categories)
         total += this.filterData.categories.length;
-      if (this.filterData.merchants)
-        total += this.filterData.merchants.length;
+      if (this.filterData.merchants) total += this.filterData.merchants.length;
       if (this.filterData.stalls) total += this.filterData.stalls.length;
 
-      console.log('### fiterCount', total)
+      console.log("### fiterCount", total);
       return total;
     },
     filterStalls() {
@@ -774,7 +772,9 @@ export default defineComponent({
       const categories = this.products
         .map((p) => p.categories)
         .flat()
-        .filter((c) => !!c);
+        .filter((c) => !!c)
+        .map((c) => c.toLowerCase());
+
       const countedCategories = categories.reduce((all, c) => {
         all[c] = (all[c] || 0) + 1;
         return all;
@@ -1815,7 +1815,7 @@ export default defineComponent({
     hasCategory(categories = []) {
       if (!this.filterData.categories?.length) return true;
       for (const cat of categories) {
-        if (this.filterData.categories.indexOf(cat) !== -1) return true;
+        if (this.filterData.categories.indexOf(cat.toLowerCase()) !== -1) return true;
       }
       return false;
     },
