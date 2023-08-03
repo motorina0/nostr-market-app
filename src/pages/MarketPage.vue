@@ -451,7 +451,6 @@
         :search-text="searchText"
         :filter-categories="filterData.categories"
         @change-page="navigateTo"
-        @update-data="updateData"
         @add-to-cart="addProductToCart"
       ></customer-market>
     </div>
@@ -807,9 +806,6 @@ export default defineComponent({
     await this.addMarket(params.get("naddr"));
     await this.handleQueryParams(params);
 
-    // Get notes from Nostr
-    // await this.initNostr();
-
     await this.listenForIncommingDms(
       this.merchants.map((m) => ({
         publicKey: m.publicKey,
@@ -962,74 +958,6 @@ export default defineComponent({
         opts: { ...this.config.opts, name, about, ui },
       };
       this.applyUiConfigs(this.config?.opts);
-    },
-
-    async updateData(events) {
-      console.log("### updateData", events);
-      if (!events?.length) {
-        this.$q.notify({
-          message: "No matches were found!",
-        });
-        return;
-      }
-      let products = new Map();
-      let stalls = new Map();
-      const deleteEventsIds = events
-        .filter((e) => e.kind === 5)
-        .map((e) => (e.tags || []).filter((t) => t[0] === "e"))
-        .flat()
-        .map((t) => t[1])
-        .filter((t) => !!t);
-
-      this.stalls.forEach((s) => stalls.set(s.id, s));
-      this.products.forEach((p) => products.set(p.id, p));
-
-      events.map(eventToObj).map((e) => {
-        if (e.kind == 0) {
-          if (e.pubkey == this.account?.pubkey) {
-            this.accountMetadata = e.content;
-          }
-          this.merchants
-            .filter((m) => m.publicKey === e.pubkey)
-            .forEach((m) => (m.profile = e.content));
-          return;
-        } else if (e.kind == 5) {
-          console.log("### delete event", e);
-        } else if (e.kind == 30018) {
-          //it's a product `d` is the prod. id
-          products.set(e.d, {
-            ...e.content,
-            pubkey: e.pubkey,
-            id: e.d,
-            categories: e.t,
-            eventId: e.id,
-          });
-        } else if (e.kind == 30017) {
-          // it's a stall `d` is the stall id
-          stalls.set(e.d, {
-            ...e.content,
-            pubkey: e.pubkey,
-            id: e.d,
-            pubkey: e.pubkey,
-          });
-        }
-      });
-
-      this.stalls = await Array.from(stalls.values());
-
-      this.products = Array.from(products.values())
-        .map((obj) => {
-          const stall = this.stalls.find((s) => s.id == obj.stall_id);
-          if (!stall) return;
-          obj.stallName = stall.name;
-          obj.images = obj.images || [obj.image];
-          if (obj.currency != "sat") {
-            obj.formatedPrice = this.getAmountFormated(obj.price, obj.currency);
-          }
-          return obj;
-        })
-        .filter((p) => p && deleteEventsIds.indexOf(p.eventId) === -1);
-      // console.log('### this.products', this.products)
     },
 
     async toRelayKey(relayUrl) {
@@ -1216,39 +1144,6 @@ export default defineComponent({
       }
     },
 
-    async initNostr() {
-      this.isLoading = true;
-      this.pool = new NostrTools.SimplePool();
-
-      const relays = Array.from(this.relays);
-
-      const authors = this.merchants.map((m) => m.publicKey);
-      const events = await this.pool.list(relays, [
-        { kinds: [0, 30017, 30018], authors },
-      ]);
-      if (!events || events.length == 0) return;
-      await this.updateData(events);
-
-      const lastEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
-      this.poolSubscribe(lastEvent.created_at);
-      this.isLoading = false;
-    },
-
-    async poolSubscribe(since) {
-      const authors = this.merchants.map((m) => m.publicKey);
-      this.pool
-        .sub(Array.from(this.relays), [
-          { kinds: [0, 5, 30017, 30018], authors, since },
-        ])
-        .on(
-          "event",
-          (event) => {
-            this.updateData([event]);
-          },
-          { id: "masterSub" } //pass ID to cancel previous sub
-        );
-    },
-
     async addMarket(naddr) {
       if (!naddr) return;
 
@@ -1361,7 +1256,6 @@ export default defineComponent({
         .map((p) => ({ publicKey: p, profile: null }));
       this.merchants.unshift(...newMerchants);
       this.$q.localStorage.set("nostrmarket.merchants", this.merchants);
-      // this.initNostr(); // todo: improve
     },
 
     updateMarket(market) {
@@ -1815,7 +1709,8 @@ export default defineComponent({
     hasCategory(categories = []) {
       if (!this.filterData.categories?.length) return true;
       for (const cat of categories) {
-        if (this.filterData.categories.indexOf(cat.toLowerCase()) !== -1) return true;
+        if (this.filterData.categories.indexOf(cat.toLowerCase()) !== -1)
+          return true;
       }
       return false;
     },
