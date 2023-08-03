@@ -14,6 +14,7 @@
         <div class="col-md-3 col-sm-12 col-xs-12 q-pt-sm q-pl-md">
           <q-input
             v-model="filterData.priceFrom"
+            :disabled="!filterData.currency"
             type="number"
             label="Price From"
             hint="Price Starting At"
@@ -22,6 +23,7 @@
         <div class="col-md-3 col-sm-12 col-xs-12 q-pt-sm q-pl-lg">
           <q-input
             v-model="filterData.priceTo"
+            :disabled="!filterData.currency"
             type="number"
             label="Price To"
             hint="Maximum Price"
@@ -190,20 +192,14 @@ export default defineComponent({
       this.filterData.stalls = [];
     },
     search: function () {
-      this.$emit("filter", this.filterData);
+      const filterData = {
+        ...this.filterData,
+        merchants: this.filterData.merchants.map((m) => m.value),
+        stalls: this.filterData.stalls.map((s) => s.value),
+      };
+      this.$emit("filter-update", filterData);
     },
-  },
-  created: async function () {
-    console.log("### stalls", this.stalls);
-    this.filterData = {
-      ...this.filterData,
-      ...JSON.parse(JSON.stringify(this.filter || {})),
-    };
-    this.filterData.categories = (this.categories || [])
-      .filter((c) => c.selected)
-      .map((c) => c.category);
-
-    this.merchantProfiles = this.merchants.map((m) => {
+    mapMerchantProfile(m) {
       const merchantProfile = this.profiles.find((p) => p.pubkey === m);
       if (merchantProfile) {
         return {
@@ -214,7 +210,31 @@ export default defineComponent({
         };
       }
       return { label: m, value: m };
+    },
+  },
+  created: async function () {
+    console.log("### this.filter", this.filter);
+    this.filterData = {
+      ...this.filterData,
+      ...JSON.parse(JSON.stringify(this.filter || {})),
+    };
+    this.filterData.categories = [
+      ...new Set((this.filterData.categories || []).concat(
+        (this.categories || []).filter((c) => c.selected).map((c) => c.category)
+      )),
+    ];
+
+    this.filterData.merchants = (this.filterData.merchants || []).map(
+      this.mapMerchantProfile
+    );
+    this.filterData.stalls = (this.filterData.stalls || []).map((stallId) => {
+      const s = this.stalls.find((s) => s.id === stallId) || {
+        label: stallId,
+        value: stallId,
+      };
+      return { label: s.name, value: s.id };
     });
+    this.merchantProfiles = this.merchants.map(this.mapMerchantProfile);
   },
 });
 </script>

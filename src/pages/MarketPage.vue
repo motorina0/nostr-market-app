@@ -281,22 +281,23 @@
     </div>
 
     <q-separator class="q-mt-sm q-mb-md"></q-separator>
-    <product-filter
-      v-if="activePage === 'product-filter'"
-      :categories="allCategories"
-      :currencies="allCurrencies"
-      :merchants="allMerchants"
-      :stalls="stalls"
-      :profiles="profiles"
-      @filter="handleFilterData"
-      class="q-mb-md"
-    ></product-filter>
+
     <div v-if="activePage === 'loading'" class="row q-mb-sm">
       <div class="col-12 text-center">
         <q-spinner-dots color="primary" size="xl" />
       </div>
     </div>
-
+    <product-filter
+      v-if="activePage === 'product-filter'"
+      :filter="filterData"
+      :categories="allCategories"
+      :currencies="allCurrencies"
+      :merchants="allMerchants"
+      :stalls="stalls"
+      :profiles="profiles"
+      @filter-update="handleFilterData"
+      class="q-mb-md"
+    ></product-filter>
     <market-config
       v-else-if="activeMarket && activePage === 'market-config'"
       :market="activeMarket"
@@ -445,7 +446,7 @@
         v-else
         :filtered-products="filterProducts"
         :search-text="searchText"
-        :filter-categories="filterCategories"
+        :filter-categories="filterData.categories"
         @change-page="navigateTo"
         @update-data="updateData"
         @add-to-cart="addProductToCart"
@@ -581,7 +582,6 @@ export default defineComponent({
         show: false,
       },
 
-      filterCategories: [],
       groupByStall: false,
 
       relays: new Set(),
@@ -594,9 +594,12 @@ export default defineComponent({
       bannerImage: null,
       logoImage: null,
       isLoading: false,
-      showFilterDetails: false,
 
+      showFilterDetails: false,
       searchText: null,
+      filterData: {
+        categories: [],
+      },
 
       activeMarket: null,
       activeStall: null,
@@ -668,6 +671,28 @@ export default defineComponent({
       let products = this.products.filter((p) =>
         this.hasCategory(p.categories)
       );
+      if (this.filterData.merchants?.length) {
+        products = products.filter((p) =>
+          this.filterData.merchants.includes(p.pubkey)
+        );
+      }
+      if (this.filterData.stalls?.length) {
+        products = products.filter((p) =>
+          this.filterData.stalls.includes(p.stall_id)
+        );
+      }
+      if (this.filterData.currency) {
+        products = products.filter(
+          (p) =>
+            this.filterData.currency.toLowerCase() === p.currency.toLowerCase()
+        );
+      }
+      if (this.filterData.priceFrom) {
+        products = products.filter((p) => p.price >= this.filterData.priceFrom);
+      }
+      if (this.filterData.priceTo) {
+        products = products.filter((p) => p.price <= this.filterData.priceTo);
+      }
       if (this.activeStall) {
         products = products.filter((p) => p.stall_id == this.activeStall);
       }
@@ -742,7 +767,7 @@ export default defineComponent({
         .map((category) => ({
           category,
           count: countedCategories[category],
-          selected: this.filterCategories.indexOf(category) !== -1,
+          selected: this.filterData.categories.indexOf(category) !== -1,
         }))
         .sort((a, b) => b.count - a.count);
     },
@@ -866,6 +891,8 @@ export default defineComponent({
     },
     handleFilterData(filterData) {
       console.log("### handleFilterData", filterData);
+      this.filterData = filterData;
+      this.setActivePage("market");
     },
 
     async createAccount(useExtension = false) {
@@ -1761,18 +1788,18 @@ export default defineComponent({
     },
 
     toggleCategoryFilter(category) {
-      const index = this.filterCategories.indexOf(category);
+      const index = this.filterData.categories.indexOf(category);
       if (index === -1) {
-        this.filterCategories.push(category);
+        this.filterData.categories.push(category);
       } else {
-        this.filterCategories.splice(index, 1);
+        this.filterData.categories.splice(index, 1);
       }
     },
 
     hasCategory(categories = []) {
-      if (!this.filterCategories?.length) return true;
+      if (!this.filterData.categories?.length) return true;
       for (const cat of categories) {
-        if (this.filterCategories.indexOf(cat) !== -1) return true;
+        if (this.filterData.categories.indexOf(cat) !== -1) return true;
       }
       return false;
     },
