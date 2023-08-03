@@ -14,7 +14,6 @@
         <div class="col-md-3 col-sm-12 col-xs-12 q-pt-sm q-pl-md">
           <q-input
             v-model="filterData.priceFrom"
-            :disabled="!filterData.currency"
             type="number"
             label="Price From"
             hint="Price Starting At"
@@ -23,7 +22,6 @@
         <div class="col-md-3 col-sm-12 col-xs-12 q-pt-sm q-pl-lg">
           <q-input
             v-model="filterData.priceTo"
-            :disabled="!filterData.currency"
             type="number"
             label="Price To"
             hint="Maximum Price"
@@ -175,7 +173,7 @@ export default defineComponent({
         merchants: [],
         stalls: [],
       };
-      this.$emit("filter", this.filterData);
+      this.$emit("filter-update", this.filterData);
     },
     clearPrice() {
       this.filterData.currency = null;

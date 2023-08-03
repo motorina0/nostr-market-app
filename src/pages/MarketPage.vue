@@ -37,7 +37,11 @@
             flat
             size="lg"
             @click="navigateTo('product-filter')"
-            ><q-tooltip>Search for products on Nostr</q-tooltip></q-btn
+            ><q-tooltip>Search for products on Nostr</q-tooltip>
+            <q-badge v-if="filterCount" color="secondary" floating>
+              <span v-text="filterCount"></span>
+            </q-badge>
+            </q-btn
           >
           <!-- <q-btn
             color="gray"
@@ -668,34 +672,32 @@ export default defineComponent({
   },
   computed: {
     filterProducts() {
-      let products = this.products.filter((p) =>
-        this.hasCategory(p.categories)
+      const isByMerchat = (pubkey) =>
+        !this.filterData.merchants?.length ||
+        this.filterData.merchants.includes(pubkey);
+      const isInStall = (stallId) =>
+        !this.filterData.stalls?.length ||
+        this.filterData.stalls.includes(stallId);
+      const hasCurrency = (currency) =>
+        !this.filterData.currency ||
+        this.filterData.currency.toLowerCase() === currency.toLowerCase();
+      const hasPriceFrom = (price) =>
+        !this.filterData.priceFrom || price >= this.filterData.priceFrom;
+      const hasPriceTo = (price) =>
+        !this.filterData.priceTo || price <= this.filterData.priceTo;
+      const isInActiceStall = (stallId) =>
+        !this.activeStall || stallId == this.activeStall;
+
+      let products = this.products.filter(
+        (p) =>
+          this.hasCategory(p.categories) &&
+          isInActiceStall(p.stall_id) &&
+          isByMerchat(p.pubkey) &&
+          isInStall(p.stall_id) &&
+          hasCurrency(p.currency) &&
+          hasPriceFrom(p.price) &&
+          hasPriceTo(p.price)
       );
-      if (this.filterData.merchants?.length) {
-        products = products.filter((p) =>
-          this.filterData.merchants.includes(p.pubkey)
-        );
-      }
-      if (this.filterData.stalls?.length) {
-        products = products.filter((p) =>
-          this.filterData.stalls.includes(p.stall_id)
-        );
-      }
-      if (this.filterData.currency) {
-        products = products.filter(
-          (p) =>
-            this.filterData.currency.toLowerCase() === p.currency.toLowerCase()
-        );
-      }
-      if (this.filterData.priceFrom) {
-        products = products.filter((p) => p.price >= this.filterData.priceFrom);
-      }
-      if (this.filterData.priceTo) {
-        products = products.filter((p) => p.price <= this.filterData.priceTo);
-      }
-      if (this.activeStall) {
-        products = products.filter((p) => p.stall_id == this.activeStall);
-      }
       if (!this.searchText || this.searchText.length < 2) return products;
       const searchText = this.searchText.toLowerCase();
       return products.filter(
@@ -705,6 +707,20 @@ export default defineComponent({
           (p.categories &&
             p.categories.toString().toLowerCase().includes(searchText))
       );
+    },
+    filterCount() {
+      let total = 0;
+      if (this.filterData.currency) total++;
+      if (this.filterData.priceFrom) total++;
+      if (this.filterData.priceTo) total++;
+      if (this.filterData.categories)
+        total += this.filterData.categories.length;
+      if (this.filterData.merchants)
+        total += this.filterData.merchants.length;
+      if (this.filterData.stalls) total += this.filterData.stalls.length;
+
+      console.log('### fiterCount', total)
+      return total;
     },
     filterStalls() {
       const stalls = this.stalls
