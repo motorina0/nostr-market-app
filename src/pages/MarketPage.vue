@@ -1500,11 +1500,18 @@ export default defineComponent({
       }
     },
 
-    sendOrderEvent(event) {
-      const pub = this.pool.publish(Array.from(this.relays), event);
+    async sendOrderEvent(event) {
+      const merchantPubkey = event.tags
+        .filter((t) => t[0] === "p")
+        .map((t) => t[1]);
+
+      const merchantRelays = this.findRelaysForMerchant(merchantPubkey[0]);
+      const relayCount = await this.publishEventToRelays(event, merchantRelays);
       this.$q.notify({
-        type: "positive",
-        message: "The order has been placed!",
+        type: relayCount ? "positive" : "warning",
+        message: relayCount
+          ? `The order has been placed (${relayCount} relays)!`
+          : "Order could not be placed",
       });
       this.qrCodeDialog = {
         data: {
@@ -1512,15 +1519,41 @@ export default defineComponent({
           message: null,
         },
         dismissMsg: null,
-        show: true,
+        show: !!relayCount,
       };
-      pub.on("ok", () => {
-        this.qrCodeDialog.show = true;
-      });
-      pub.on("failed", (error) => {
-        // do not show to user. It is possible that only one relay has failed
-        console.error(error);
-      });
+    },
+
+    async publishEventToRelays(event, relayUrls) {
+      let count = 0;
+      for (const relayUrl of relayUrls) {
+        if (await this.publishEventToRelay(event, relayUrl)) {
+          count++;
+        }
+      }
+      return count;
+    },
+
+    async publishEventToRelay(event, relayUrl) {
+      try {
+        const relayKey = await this.toRelayKey(relayUrl);
+        const relayData = this.relaysData[relayKey];
+        if (relayData?.connected) {
+          await relayData.relay.publish(event);
+        }
+        return true;
+      } catch (error) {
+        console.warn(error);
+        return false;
+      }
+    },
+
+    findRelaysForMerchant(pubkey) {
+      const relaysForMerchant = this.markets
+        .filter((m) => m.opts.merchants.includes(pubkey))
+        .map((m) => m.relays)
+        .flat();
+
+      return [...new Set(relaysForMerchant)];
     },
 
     async listenForIncommingDms(from) {
