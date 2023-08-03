@@ -62,7 +62,7 @@
     <q-separator />
     <q-card-actions align="right">
       <q-btn @click="clear()" flat color="grey"> Clear </q-btn>
-      <q-btn @click="search()" flat color="primary" class="q-mr-md">
+      <q-btn @click="search()" flat icon="search" color="primary" class="q-mr-md">
         Search
       </q-btn>
     </q-card-actions>

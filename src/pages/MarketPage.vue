@@ -293,6 +293,7 @@
       :currencies="allCurrencies"
       :merchants="allMerchants"
       :profiles="profiles"
+      @filter="handleFilterData"
     ></product-filter>
     <market-config
       v-else-if="activeMarket && activePage === 'market-config'"
@@ -861,6 +862,9 @@ export default defineComponent({
       }
       this.$q.dark.set(!!ui?.darkMode);
     },
+    handleFilterData(filterData) {
+      console.log("### handleFilterData", filterData);
+    },
 
     async createAccount(useExtension = false) {
       let nip07;
@@ -1095,7 +1099,7 @@ export default defineComponent({
         this.profiles.push({ pubkey: e.pubkey, ...e.content });
         this.$q.localStorage.set("nostrmarket.profiles", this.profiles);
       } catch (error) {
-        console.warn(error)
+        console.warn(error);
       }
     },
 
