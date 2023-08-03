@@ -809,7 +809,6 @@ export default defineComponent({
     await this.addMarket(params.get("naddr"));
     await this.handleQueryParams(params);
 
-    await this.listenForIncommingDms();
     this.isLoading = false;
     this.loadRelaysData();
   },
@@ -1588,41 +1587,6 @@ export default defineComponent({
       return [...new Set(relaysForMerchant)];
     },
 
-    async listenForIncommingDms() {
-      if (!this.account?.privkey) {
-        return;
-      }
-
-      try {
-        const filters = [
-          {
-            kinds: [4],
-            "#p": [this.account.pubkey],
-          },
-          {
-            kinds: [4],
-            authors: [this.account.pubkey],
-          },
-        ];
-
-        const subs = this.pool.sub(Array.from(this.relays), filters);
-        subs.on("event", async (event) => {
-          const receiverPubkey = event.tags.find(
-            ([k, v]) => k === "p" && v && v !== ""
-          )[1];
-          const isSentByMe = event.pubkey === this.account.pubkey;
-          if (receiverPubkey !== this.account.pubkey && !isSentByMe) {
-            console.warn("Unexpected DM. Dropped!");
-            return;
-          }
-          this.persistDMEvent(event);
-          const peerPubkey = isSentByMe ? receiverPubkey : event.pubkey;
-          await this.handleIncommingDm(event, peerPubkey);
-        });
-      } catch (e) {
-        console.warn(e);
-      }
-    },
     async handleIncommingDm(event, peerPubkey) {
       try {
         const plainText = await NostrTools.nip04.decrypt(
