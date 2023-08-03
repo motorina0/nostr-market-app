@@ -791,7 +791,10 @@ export default defineComponent({
       return [...new Set(currencies)];
     },
     allMerchants() {
-      return this.markets.map((m) => m.opts.merchants).flat();
+      return [...new Set(this.markets.map((m) => m.opts.merchants).flat())];
+    },
+    allRelays() {
+      return [...new Set(this.markets.map((m) => m.relays).flat())];
     },
   },
 
@@ -806,12 +809,7 @@ export default defineComponent({
     await this.addMarket(params.get("naddr"));
     await this.handleQueryParams(params);
 
-    await this.listenForIncommingDms(
-      this.merchants.map((m) => ({
-        publicKey: m.publicKey,
-        since: this.lastDmForPubkey(m.publicKey),
-      }))
-    );
+    await this.listenForIncommingDms();
     this.isLoading = false;
     this.loadRelaysData();
   },
@@ -1016,12 +1014,37 @@ export default defineComponent({
       }
     },
 
+    buildRelayFilters(relayData) {
+      const authors = relayData.merchants;
+      const filters = [
+        {
+          kinds: [0, 5, 30017, 30018],
+          authors,
+          since: relayData.lastEventAt + 1,
+        },
+      ];
+      if (this.account?.pubkey) {
+        filters.push(
+          {
+            kinds: [4],
+            "#p": [this.account.pubkey],
+            since: relayData.lastEventAt + 1,
+          },
+          {
+            kinds: [4],
+            authors: [this.account.pubkey],
+            since: relayData.lastEventAt + 1,
+          }
+        );
+      }
+      return filters;
+    },
+
     async queryRelay(relayKey) {
       const relayData = this.relaysData[relayKey];
-      const authors = relayData.merchants;
-      const events = await relayData.relay.list([
-        { kinds: [0, 30017, 30018], authors, since: relayData.lastEventAt + 1 },
-      ]);
+      const filters = this.buildRelayFilters(relayData);
+
+      const events = await relayData.relay.list(filters);
       console.log("### queryRelay.events", relayData.relayUrl, events);
 
       if (events?.length) {
@@ -1032,13 +1055,7 @@ export default defineComponent({
         await this.processEvents(events, relayData.relayUrl);
       }
 
-      relayData.sub = relayData.relay.sub([
-        {
-          kinds: [0, 5, 30017, 30018],
-          authors,
-          since: relayData.lastEventAt + 1,
-        },
-      ]);
+      relayData.sub = relayData.relay.sub(filters);
       relayData.sub.on(
         "event",
         (event) => {
@@ -1057,6 +1074,7 @@ export default defineComponent({
         .map(eventToObj);
 
       events.filter((e) => e.kind === 0).forEach(this.processProfileEvents);
+      events.filter((e) => e.kind === 4).forEach(this.processDmEvents);
       events.filter((e) => e.kind === 30017).forEach(this.processStallEvents);
       events.filter((e) => e.kind === 30018).forEach(this.processProductEvents);
 
@@ -1142,6 +1160,20 @@ export default defineComponent({
       if (existingProduct.createdAt < product.createdAt) {
         this.products.splice(productIndex, 1, product);
       }
+    },
+
+    async processDmEvents(e) {
+      const receiverPubkey = e.tags.find(
+        ([k, v]) => k === "p" && v && v !== ""
+      )[1];
+      const isSentByMe = e.pubkey === this.account.pubkey;
+      if (receiverPubkey !== this.account.pubkey && !isSentByMe) {
+        console.warn("Unexpected DM. Dropped!");
+        return;
+      }
+      this.persistDMEvent(e);
+      const peerPubkey = isSentByMe ? receiverPubkey : e.pubkey;
+      await this.handleIncommingDm(e, peerPubkey);
     },
 
     async addMarket(naddr) {
@@ -1556,7 +1588,7 @@ export default defineComponent({
       return [...new Set(relaysForMerchant)];
     },
 
-    async listenForIncommingDms(from) {
+    async listenForIncommingDms() {
       if (!this.account?.privkey) {
         return;
       }
@@ -1587,9 +1619,8 @@ export default defineComponent({
           const peerPubkey = isSentByMe ? receiverPubkey : event.pubkey;
           await this.handleIncommingDm(event, peerPubkey);
         });
-        return subs;
-      } catch (err) {
-        console.error(`Error: ${err}`);
+      } catch (e) {
+        console.warn(e);
       }
     },
     async handleIncommingDm(event, peerPubkey) {
