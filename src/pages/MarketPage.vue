@@ -1215,6 +1215,7 @@ export default defineComponent({
         );
         this.markets.unshift(market);
         this.$q.localStorage.set("nostrmarket.markets", this.markets);
+        // todo: add relays and merchants
       } catch (error) {
         console.warn(error);
       }
@@ -1316,7 +1317,7 @@ export default defineComponent({
       newRelays.forEach((r) => this.handleNewRelay(market, r));
       removedRelays.forEach(this.handleRemovedRelay);
 
-      // stalls and products can be removed when a market is removed
+      // stalls and products can be removed when a market is updated
       this.persistStallsAndProducts();
       this.persistRelaysData();
     },
@@ -1394,7 +1395,7 @@ export default defineComponent({
         this.requeryRelay(relayKey);
       });
     },
-    handleRemovedRelay(relayUrl) {
+    async handleRemovedRelay(relayUrl) {
       // todo: later
       // leave products and stalls alone
       const marketWitRelay = this.markets.find((m) =>
@@ -1402,6 +1403,9 @@ export default defineComponent({
       );
       if (!marketWitRelay) {
         // relay no longer exists
+        const relayKey = await this.toRelayKey(relayUrl);
+        this.relaysData[relayKey] = null;
+        this.persistRelaysData();
       }
       console.log("### marketWitRelay", marketWitRelay);
     },
@@ -1421,8 +1425,13 @@ export default defineComponent({
         this.navigateTo("market");
         this.updateUiConfig(this.markets[0]);
       }
-      // todo: remove merchants
+      market.opts.merchants.forEach(this.handleRemoveMerchant);
+      market.relays.forEach(this.handleRemovedRelay);
+
+      this.persistStallsAndProducts();
+      this.persistRelaysData();
     },
+
     addProductToCart(item) {
       let stallCart = this.shoppingCarts.find((s) => s.id === item.stall_id);
       if (!stallCart) {
@@ -1643,10 +1652,12 @@ export default defineComponent({
     persistRelaysData() {
       this.$q.localStorage.set(
         "nostrmarket.relays",
-        Object.values(this.relaysData).map((relayData) => ({
-          lastEventAt: relayData.lastEventAt,
-          relayUrl: relayData.relayUrl,
-        }))
+        Object.values(this.relaysData)
+          .filter((r) => !!r)
+          .map((relayData) => ({
+            lastEventAt: relayData.lastEventAt,
+            relayUrl: relayData.relayUrl,
+          }))
       );
     },
 
