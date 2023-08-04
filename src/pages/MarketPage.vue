@@ -347,9 +347,10 @@
       :orders="orders"
       :products="products"
       :stalls="stalls"
-      :merchants="merchants"
+
       @show-invoice="showInvoiceQr"
     ></customer-orders>
+    <!-- todo: :merchants="merchants" -->
 
     <customer-stall
       v-else-if="activePage === 'customer-stall'"
@@ -918,6 +919,7 @@ export default defineComponent({
     },
 
     /////////////////////////////////////////////////////////// ACCOUNT ///////////////////////////////////////////////////////////
+
     generateKeyPair() {
       this.accountDialog.data.key = NostrTools.generatePrivateKey();
       this.accountDialog.data.watchOnly = false;
@@ -951,12 +953,41 @@ export default defineComponent({
       }
       this.accountDialog.show = false;
     },
+    logout() {
+      window.localStorage.removeItem("nostrmarket.account");
+      window.location.href = window.location.origin + window.location.pathname;
+      this.account = null;
+      this.accountMetadata = null;
+    },
+    clearAllData() {
+      this.$q
+        .dialog(
+          confirm(
+            "This will remove all information about merchants, products, relays and others. " +
+              "You will NOT be logged out. Do you want to proceed?"
+          )
+        )
+        .onOk(async () => {
+          this.$q.localStorage
+            .getAllKeys()
+            .filter((key) => key !== "nostrmarket.account")
+            .forEach((key) => window.localStorage.removeItem(key));
+
+          this.orders = [];
+          this.config = { opts: null };
+          this.shoppingCarts = [];
+          this.checkoutCart = null;
+          window.location.href =
+            window.location.origin + window.location.pathname;
+        });
+    },
 
     /////////////////////////////////////////////////////////// RELAYS ///////////////////////////////////////////////////////////
 
     async _toRelayKey(relayUrl) {
       return "relay_" + (await hash(relayUrl));
     },
+
     async _loadRelaysData() {
       for (const market of this.markets) {
         for (const relayUrl of market.relays) {
@@ -1061,6 +1092,38 @@ export default defineComponent({
       );
     },
 
+    async _publishEventToRelays(event, relayUrls) {
+      let count = 0;
+      for (const relayUrl of relayUrls) {
+        if (await this._publishEventToRelay(event, relayUrl)) {
+          count++;
+        }
+      }
+      return count;
+    },
+
+    async _publishEventToRelay(event, relayUrl) {
+      try {
+        const relayKey = await this._toRelayKey(relayUrl);
+        const relayData = this.relaysData[relayKey];
+        if (relayData?.connected) {
+          await relayData.relay.publish(event);
+        }
+        return true;
+      } catch (error) {
+        console.warn(error);
+        return false;
+      }
+    },
+
+    _findRelaysForMerchant(pubkey) {
+      const relaysForMerchant = this.markets
+        .filter((m) => m.opts.merchants.includes(pubkey))
+        .map((m) => m.relays)
+        .flat();
+
+      return [...new Set(relaysForMerchant)];
+    },
     /////////////////////////////////////////////////////////// PROCESS EVENTS ///////////////////////////////////////////////////////////
 
     _processEvents(events, relayUrl) {
@@ -1080,8 +1143,8 @@ export default defineComponent({
 
       console.log("### products: ", JSON.stringify(this.products));
       console.log("### stalls: ", this.stalls);
-      this.persistStallsAndProducts();
-      this.persistRelaysData();
+      this._persistStallsAndProducts();
+      this._persistRelaysData();
     },
 
     _processProfileEvents(e) {
@@ -1171,12 +1234,25 @@ export default defineComponent({
         console.warn("Unexpected DM. Dropped!");
         return;
       }
-      this.persistDMEvent(e);
+      this._persistDMEvent(e);
       const peerPubkey = isSentByMe ? receiverPubkey : e.pubkey;
-      await this.handleIncommingDm(e, peerPubkey);
+      await this._handleIncommingDm(e, peerPubkey);
     },
 
     /////////////////////////////////////////////////////////// MARKET ///////////////////////////////////////////////////////////
+
+    createMarket(navigateToConfig) {
+      this.markets.unshift({
+        d: crypto.randomUUID(),
+        pubkey: this.account?.pubkey || "",
+        relays: [],
+        selected: true,
+      });
+      this.$q.localStorage.set("nostrmarket.markets", this.markets);
+      if (navigateToConfig === true) {
+        this.showMarketConfig(0);
+      }
+    },
     async addMarket(naddr) {
       if (!naddr) return;
 
@@ -1250,11 +1326,95 @@ export default defineComponent({
       console.log("### removedRelays", removedRelays);
 
       newRelays.forEach((r) => this._handleNewRelay(market, r));
-      removedRelays.forEach(this.handleRemovedRelay);
+      removedRelays.forEach(this._handleRemovedRelay);
 
       // stalls and products can be removed when a market is updated
-      this.persistStallsAndProducts();
-      this.persistRelaysData();
+      this._persistStallsAndProducts();
+      this._persistRelaysData();
+    },
+    deleteMarket(market) {
+      const { d, pubkey } = market;
+      this.markets = this.markets.filter(
+        (m) => m.d !== d || m.pubkey !== pubkey
+      );
+      this.$q.localStorage.set("nostrmarket.markets", this.markets);
+      if (
+        this.activeMarket &&
+        this.activeMarket.d === d &&
+        this.activeMarket.pubkey === pubkey
+      ) {
+        this.activeMarket = null;
+        this.navigateTo("market");
+        this.updateUiConfig(this.markets[0]);
+      }
+      market.opts.merchants.forEach(this._handleRemoveMerchant);
+      market.relays.forEach(this._handleRemovedRelay);
+
+      this._persistStallsAndProducts();
+      this._persistRelaysData();
+    },
+    toggleMarket() {
+      this.allMarketsSelected = !this.markets.find((m) => !m.selected);
+      this.$q.localStorage.set("nostrmarket.markets", this.markets);
+    },
+    toggleAllMarkets() {
+      this.markets.forEach((m) => (m.selected = this.allMarketsSelected));
+      this.$q.localStorage.set("nostrmarket.markets", this.markets);
+    },
+    showMarketConfig(index) {
+      this.activeMarket = this.markets[index];
+      this.transitToPage("market-config");
+    },
+    async publishNaddr() {
+      if (!this.account?.privkey) {
+        this.openAccountDialog();
+        this.$q.notify({
+          message: "Login Required!",
+          icon: "warning",
+        });
+        return;
+      }
+
+      const merchants = []; // todo: get from market
+      const { name, about, ui } = this.config?.opts || {};
+      const content = { merchants, name, about, ui };
+      const identifier = this.config.identifier ?? crypto.randomUUID();
+      const event = {
+        ...(await NostrTools.getBlankEvent()),
+        kind: 30019,
+        content: JSON.stringify(content),
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [["d", identifier]],
+        pubkey: this.account.pubkey,
+      };
+      event.id = NostrTools.getEventHash(event);
+      try {
+        event.sig = await NostrTools.signEvent(event, this.account.privkey);
+
+        // todo: replace with market relays
+        const pub = this.pool.publish(Array.from([]), event);
+        pub.on("ok", () => {
+          console.debug(`Config event was sent`);
+        });
+        pub.on("failed", (error) => {
+          console.error(error);
+        });
+      } catch (err) {
+        console.error(err);
+        this.$q.notify({
+          message: "Cannot publish market profile",
+          caption: `Error: ${err}`,
+          color: "negative",
+        });
+        return;
+      }
+      const naddr = NostrTools.nip19.naddrEncode({
+        pubkey: event.pubkey,
+        kind: 30019,
+        identifier: identifier,
+        relays: [], //todo: replace with market relays
+      });
+      this.copyText(naddr);
     },
 
     _handleNewMerchant(market, merchantPubkey) {
@@ -1316,9 +1476,9 @@ export default defineComponent({
       this.products = this.products.filter((p) => p.pubkey !== merchantPubkey);
       this.stalls = this.stalls.filter((s) => s.pubkey !== merchantPubkey);
 
-      this.removeSubscriptionsForMerchant(merchantPubkey);
+      this._removeSubscriptionsForMerchant(merchantPubkey);
     },
-    removeSubscriptionsForMerchant(merchantPubkey) {
+    _removeSubscriptionsForMerchant(merchantPubkey) {
       Object.keys(this.relaysData).forEach((relayKey) => {
         const relayData = this.relaysData[relayKey];
         if (!relayData.merchants.includes(merchantPubkey)) return;
@@ -1329,7 +1489,7 @@ export default defineComponent({
         this._requeryRelay(relayKey);
       });
     },
-    async handleRemovedRelay(relayUrl) {
+    async _handleRemovedRelay(relayUrl) {
       // todo: later
       // leave products and stalls alone
       const marketWitRelay = this.markets.find((m) =>
@@ -1339,56 +1499,7 @@ export default defineComponent({
         // relay no longer exists
         const relayKey = await this._toRelayKey(relayUrl);
         this.relaysData[relayKey] = null;
-        this.persistRelaysData();
-      }
-      console.log("### marketWitRelay", marketWitRelay);
-    },
-
-    deleteMarket(market) {
-      const { d, pubkey } = market;
-      this.markets = this.markets.filter(
-        (m) => m.d !== d || m.pubkey !== pubkey
-      );
-      this.$q.localStorage.set("nostrmarket.markets", this.markets);
-      if (
-        this.activeMarket &&
-        this.activeMarket.d === d &&
-        this.activeMarket.pubkey === pubkey
-      ) {
-        this.activeMarket = null;
-        this.navigateTo("market");
-        this.updateUiConfig(this.markets[0]);
-      }
-      market.opts.merchants.forEach(this._handleRemoveMerchant);
-      market.relays.forEach(this.handleRemovedRelay);
-
-      this.persistStallsAndProducts();
-      this.persistRelaysData();
-    },
-    toggleMarket() {
-      this.allMarketsSelected = !this.markets.find((m) => !m.selected);
-      this.$q.localStorage.set("nostrmarket.markets", this.markets);
-    },
-    toggleAllMarkets() {
-      this.markets.forEach((m) => (m.selected = this.allMarketsSelected));
-      this.$q.localStorage.set("nostrmarket.markets", this.markets);
-    },
-
-    showMarketConfig(index) {
-      this.activeMarket = this.markets[index];
-      this.transitToPage("market-config");
-    },
-
-    createMarket(navigateToConfig) {
-      this.markets.unshift({
-        d: crypto.randomUUID(),
-        pubkey: this.account?.pubkey || "",
-        relays: [],
-        selected: true,
-      });
-      this.$q.localStorage.set("nostrmarket.markets", this.markets);
-      if (navigateToConfig === true) {
-        this.showMarketConfig(0);
+        this._persistRelaysData();
       }
     },
     /////////////////////////////////////////////////////////// SHOPPING CART ///////////////////////////////////////////////////////////
@@ -1468,8 +1579,8 @@ export default defineComponent({
         event.id = NostrTools.getEventHash(event);
         event.sig = await NostrTools.signEvent(event, this.account.privkey);
 
-        this.sendOrderEvent(event);
-        this.persistOrderUpdate(
+        this._sendOrderEvent(event);
+        this._persistOrderUpdate(
           this.checkoutStall.pubkey,
           event.created_at,
           order
@@ -1485,13 +1596,16 @@ export default defineComponent({
       }
     },
 
-    async sendOrderEvent(event) {
+    async _sendOrderEvent(event) {
       const merchantPubkey = event.tags
         .filter((t) => t[0] === "p")
         .map((t) => t[1]);
 
-      const merchantRelays = this.findRelaysForMerchant(merchantPubkey[0]);
-      const relayCount = await this.publishEventToRelays(event, merchantRelays);
+      const merchantRelays = this._findRelaysForMerchant(merchantPubkey[0]);
+      const relayCount = await this._publishEventToRelays(
+        event,
+        merchantRelays
+      );
       this.$q.notify({
         type: relayCount ? "positive" : "warning",
         message: relayCount
@@ -1506,6 +1620,146 @@ export default defineComponent({
         dismissMsg: null,
         show: !!relayCount,
       };
+    },
+
+    _handlePaymentRequest(json) {
+      if (json.id && json.id !== this.activeOrderId) {
+        // not for active order, store somewehre else
+        return;
+      }
+      if (!json.payment_options?.length) {
+        this.qrCodeDialog.data.message = json.message || "Unexpected error";
+        return;
+      }
+
+      const paymentRequest = json.payment_options.find(
+        (o) => o.type == "ln"
+      ).link;
+      if (!paymentRequest) return;
+      this.qrCodeDialog.data.payment_request = paymentRequest;
+      this.qrCodeDialog.dismissMsg = this.$q.notify({
+        timeout: 10000,
+        message: "Waiting for payment...",
+      });
+    },
+
+    _handleOrderStatusUpdate(jsonData) {
+      if (jsonData.id && jsonData.id !== this.activeOrderId) {
+        // not for active order, store somewehre else
+        return;
+      }
+      if (this.qrCodeDialog.dismissMsg) {
+        this.qrCodeDialog.dismissMsg();
+      }
+      this.qrCodeDialog.show = false;
+      const message = jsonData.shipped
+        ? "Order shipped"
+        : jsonData.paid
+        ? "Order paid"
+        : "Order notification";
+      this.$q.notify({
+        type: "positive",
+        message: message,
+        caption: jsonData.message || "",
+      });
+    },
+
+    async _handleIncommingDm(event, peerPubkey) {
+      try {
+        const plainText = await NostrTools.nip04.decrypt(
+          this.account.privkey,
+          peerPubkey,
+          event.content
+        );
+        console.log("### plainText", plainText);
+        if (!isJson(plainText)) return;
+
+        const jsonData = JSON.parse(plainText);
+        if ([0, 1, 2].indexOf(jsonData.type) !== -1) {
+          this._persistOrderUpdate(peerPubkey, event.created_at, jsonData);
+        }
+        if (jsonData.type === 1) {
+          this._handlePaymentRequest(jsonData);
+        } else if (jsonData.type === 2) {
+          this._handleOrderStatusUpdate(jsonData);
+        }
+      } catch (e) {
+        console.warn("Unable to handle incomming DM", e);
+      }
+    },
+
+    /////////////////////////////////////////////////////////// PERSIST ///////////////////////////////////////////////////////////
+
+    _persistStallsAndProducts() {
+      this.$q.localStorage.set("nostrmarket.stalls", this.stalls);
+      this.$q.localStorage.set("nostrmarket.products", this.products);
+    },
+
+    _persistRelaysData() {
+      this.$q.localStorage.set(
+        "nostrmarket.relays",
+        Object.values(this.relaysData)
+          .filter((r) => !!r)
+          .map((relayData) => ({
+            lastEventAt: relayData.lastEventAt,
+            relayUrl: relayData.relayUrl,
+          }))
+      );
+    },
+
+    _persistDMEvent(event) {
+      const dms = this.$q.localStorage.getItem(
+        `nostrmarket.dm.${event.pubkey}`
+      ) || {
+        events: [],
+        lastCreatedAt: 0,
+      };
+      const existingEvent = dms.events.find((e) => e.id === event.id);
+      if (existingEvent) return;
+
+      dms.events.push(event);
+      dms.events.sort((a, b) => a - b);
+      dms.lastCreatedAt = dms.events[dms.events.length - 1].created_at;
+      this.$q.localStorage.set(`nostrmarket.dm.${event.pubkey}`, dms);
+    },
+
+    _persistOrderUpdate(pubkey, eventCreatedAt, orderUpdate) {
+      let orders =
+        this.$q.localStorage.getItem(`nostrmarket.orders.${pubkey}`) || [];
+      const orderIndex = orders.findIndex((o) => o.id === orderUpdate.id);
+
+      if (orderIndex === -1) {
+        orders.unshift({
+          ...orderUpdate,
+          eventCreatedAt,
+          createdAt: eventCreatedAt,
+        });
+        this.orders[pubkey] = orders;
+        this.orders = { ...this.orders };
+        this.$q.localStorage.set(`nostrmarket.orders.${pubkey}`, orders);
+        return;
+      }
+
+      let order = orders[orderIndex];
+
+      if (orderUpdate.type === 0) {
+        order.createdAt = eventCreatedAt;
+        order = {
+          ...order,
+          ...orderUpdate,
+          message: order.message || orderUpdate.message,
+        };
+      } else {
+        order =
+          order.eventCreatedAt < eventCreatedAt
+            ? { ...order, ...orderUpdate }
+            : { ...orderUpdate, ...order };
+      }
+
+      orders.splice(orderIndex, 1, order);
+      this.orders[pubkey] = orders;
+      this.orders = { ...this.orders };
+      this.$q.localStorage.set(`nostrmarket.orders.${pubkey}`, orders);
     },
 
     /////////////////////////////////////////////////////////// MISC ///////////////////////////////////////////////////////////
@@ -1572,177 +1826,6 @@ export default defineComponent({
       setTimeout(() => this.setActivePage(pageName), 100);
     },
 
-    async publishEventToRelays(event, relayUrls) {
-      let count = 0;
-      for (const relayUrl of relayUrls) {
-        if (await this.publishEventToRelay(event, relayUrl)) {
-          count++;
-        }
-      }
-      return count;
-    },
-
-    async publishEventToRelay(event, relayUrl) {
-      try {
-        const relayKey = await this._toRelayKey(relayUrl);
-        const relayData = this.relaysData[relayKey];
-        if (relayData?.connected) {
-          await relayData.relay.publish(event);
-        }
-        return true;
-      } catch (error) {
-        console.warn(error);
-        return false;
-      }
-    },
-
-    findRelaysForMerchant(pubkey) {
-      const relaysForMerchant = this.markets
-        .filter((m) => m.opts.merchants.includes(pubkey))
-        .map((m) => m.relays)
-        .flat();
-
-      return [...new Set(relaysForMerchant)];
-    },
-
-    async handleIncommingDm(event, peerPubkey) {
-      try {
-        const plainText = await NostrTools.nip04.decrypt(
-          this.account.privkey,
-          peerPubkey,
-          event.content
-        );
-        console.log("### plainText", plainText);
-        if (!isJson(plainText)) return;
-
-        const jsonData = JSON.parse(plainText);
-        if ([0, 1, 2].indexOf(jsonData.type) !== -1) {
-          this.persistOrderUpdate(peerPubkey, event.created_at, jsonData);
-        }
-        if (jsonData.type === 1) {
-          this.handlePaymentRequest(jsonData);
-        } else if (jsonData.type === 2) {
-          this.handleOrderStatusUpdate(jsonData);
-        }
-      } catch (e) {
-        console.warn("Unable to handle incomming DM", e);
-      }
-    },
-
-    handlePaymentRequest(json) {
-      if (json.id && json.id !== this.activeOrderId) {
-        // not for active order, store somewehre else
-        return;
-      }
-      if (!json.payment_options?.length) {
-        this.qrCodeDialog.data.message = json.message || "Unexpected error";
-        return;
-      }
-
-      const paymentRequest = json.payment_options.find(
-        (o) => o.type == "ln"
-      ).link;
-      if (!paymentRequest) return;
-      this.qrCodeDialog.data.payment_request = paymentRequest;
-      this.qrCodeDialog.dismissMsg = this.$q.notify({
-        timeout: 10000,
-        message: "Waiting for payment...",
-      });
-    },
-
-    handleOrderStatusUpdate(jsonData) {
-      if (jsonData.id && jsonData.id !== this.activeOrderId) {
-        // not for active order, store somewehre else
-        return;
-      }
-      if (this.qrCodeDialog.dismissMsg) {
-        this.qrCodeDialog.dismissMsg();
-      }
-      this.qrCodeDialog.show = false;
-      const message = jsonData.shipped
-        ? "Order shipped"
-        : jsonData.paid
-        ? "Order paid"
-        : "Order notification";
-      this.$q.notify({
-        type: "positive",
-        message: message,
-        caption: jsonData.message || "",
-      });
-    },
-
-    persistStallsAndProducts() {
-      this.$q.localStorage.set("nostrmarket.stalls", this.stalls);
-      this.$q.localStorage.set("nostrmarket.products", this.products);
-    },
-
-    persistRelaysData() {
-      this.$q.localStorage.set(
-        "nostrmarket.relays",
-        Object.values(this.relaysData)
-          .filter((r) => !!r)
-          .map((relayData) => ({
-            lastEventAt: relayData.lastEventAt,
-            relayUrl: relayData.relayUrl,
-          }))
-      );
-    },
-
-    persistDMEvent(event) {
-      const dms = this.$q.localStorage.getItem(
-        `nostrmarket.dm.${event.pubkey}`
-      ) || {
-        events: [],
-        lastCreatedAt: 0,
-      };
-      const existingEvent = dms.events.find((e) => e.id === event.id);
-      if (existingEvent) return;
-
-      dms.events.push(event);
-      dms.events.sort((a, b) => a - b);
-      dms.lastCreatedAt = dms.events[dms.events.length - 1].created_at;
-      this.$q.localStorage.set(`nostrmarket.dm.${event.pubkey}`, dms);
-    },
-
-    persistOrderUpdate(pubkey, eventCreatedAt, orderUpdate) {
-      let orders =
-        this.$q.localStorage.getItem(`nostrmarket.orders.${pubkey}`) || [];
-      const orderIndex = orders.findIndex((o) => o.id === orderUpdate.id);
-
-      if (orderIndex === -1) {
-        orders.unshift({
-          ...orderUpdate,
-          eventCreatedAt,
-          createdAt: eventCreatedAt,
-        });
-        this.orders[pubkey] = orders;
-        this.orders = { ...this.orders };
-        this.$q.localStorage.set(`nostrmarket.orders.${pubkey}`, orders);
-        return;
-      }
-
-      let order = orders[orderIndex];
-
-      if (orderUpdate.type === 0) {
-        order.createdAt = eventCreatedAt;
-        order = {
-          ...order,
-          ...orderUpdate,
-          message: order.message || orderUpdate.message,
-        };
-      } else {
-        order =
-          order.eventCreatedAt < eventCreatedAt
-            ? { ...order, ...orderUpdate }
-            : { ...orderUpdate, ...order };
-      }
-
-      orders.splice(orderIndex, 1, order);
-      this.orders[pubkey] = orders;
-      this.orders = { ...this.orders };
-      this.$q.localStorage.set(`nostrmarket.orders.${pubkey}`, orders);
-    },
-
     showInvoiceQr(invoice) {
       if (!invoice) return;
       this.qrCodeDialog = {
@@ -1797,87 +1880,6 @@ export default defineComponent({
       return defaultValue;
     },
 
-    async publishNaddr() {
-      if (!this.account?.privkey) {
-        this.openAccountDialog();
-        this.$q.notify({
-          message: "Login Required!",
-          icon: "warning",
-        });
-        return;
-      }
-
-      const merchants = []; // todo: get from market
-      const { name, about, ui } = this.config?.opts || {};
-      const content = { merchants, name, about, ui };
-      const identifier = this.config.identifier ?? crypto.randomUUID();
-      const event = {
-        ...(await NostrTools.getBlankEvent()),
-        kind: 30019,
-        content: JSON.stringify(content),
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [["d", identifier]],
-        pubkey: this.account.pubkey,
-      };
-      event.id = NostrTools.getEventHash(event);
-      try {
-        event.sig = await NostrTools.signEvent(event, this.account.privkey);
-
-        // todo: replace with market relays
-        const pub = this.pool.publish(Array.from([]), event);
-        pub.on("ok", () => {
-          console.debug(`Config event was sent`);
-        });
-        pub.on("failed", (error) => {
-          console.error(error);
-        });
-      } catch (err) {
-        console.error(err);
-        this.$q.notify({
-          message: "Cannot publish market profile",
-          caption: `Error: ${err}`,
-          color: "negative",
-        });
-        return;
-      }
-      const naddr = NostrTools.nip19.naddrEncode({
-        pubkey: event.pubkey,
-        kind: 30019,
-        identifier: identifier,
-        relays: [], //todo: replace with market relays
-      });
-      this.copyText(naddr);
-    },
-
-    logout() {
-      window.localStorage.removeItem("nostrmarket.account");
-      window.location.href = window.location.origin + window.location.pathname;
-      this.account = null;
-      this.accountMetadata = null;
-    },
-
-    clearAllData() {
-      this.$q
-        .dialog(
-          confirm(
-            "This will remove all information about merchants, products, relays and others. " +
-              "You will NOT be logged out. Do you want to proceed?"
-          )
-        )
-        .onOk(async () => {
-          this.$q.localStorage
-            .getAllKeys()
-            .filter((key) => key !== "nostrmarket.account")
-            .forEach((key) => window.localStorage.removeItem(key));
-
-          this.orders = [];
-          this.config = { opts: null };
-          this.shoppingCarts = [];
-          this.checkoutCart = null;
-          window.location.href =
-            window.location.origin + window.location.pathname;
-        });
-    },
     markNoteAsRead(noteId) {
       this.readNotes[noteId] = true;
       this.$q.localStorage.set("nostrmarket.readNotes", this.readNotes);
