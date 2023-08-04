@@ -1501,7 +1501,7 @@ export default defineComponent({
       if (!marketWitRelay) {
         // relay no longer exists
         const relayKey = await this._toRelayKey(relayUrl);
-        this.relaysData[relayKey] = null;
+        delete this.relaysData[relayKey]
         this._persistRelaysData();
       }
     },
