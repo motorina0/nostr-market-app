@@ -806,18 +806,18 @@ export default defineComponent({
     this.bannerImage = this.defaultBanner;
     this.logoImage = this.defaultLogo;
 
-    this.restoreFromStorage();
+    this._restoreFromStorage();
 
     const params = new URLSearchParams(window.location.search);
 
     await this.addMarket(params.get("naddr"));
-    await this.handleQueryParams(params);
+    await this._handleQueryParams(params);
 
     this.isLoading = false;
-    this.loadRelaysData();
+    this._loadRelaysData();
   },
   methods: {
-    async handleQueryParams(params) {
+    async _handleQueryParams(params) {
       const merchantPubkey = params.get("merchant");
       const stallId = params.get("stall");
       const productId = params.get("product");
@@ -846,7 +846,7 @@ export default defineComponent({
       //     });
       // }
     },
-    restoreFromStorage() {
+    _restoreFromStorage() {
       this.markets = this.$q.localStorage.getItem("nostrmarket.markets") || [];
       this.allMarketsSelected = !this.markets.find((m) => !m.selected);
 
@@ -874,7 +874,7 @@ export default defineComponent({
         ...this.config,
         opts: { ...this.config.opts, ...uiConfig },
       };
-      this.applyUiConfigs(this.config.opts);
+      this._applyUiConfigs(this.config.opts);
 
       const prefix = "nostrmarket.orders.";
       const orderKeys = this.$q.localStorage
@@ -889,8 +889,8 @@ export default defineComponent({
         this.$q.localStorage.getItem("nostrmarket.readNotes") || {};
       this.readNotes = { ...this.readNotes, ...readNotes };
     },
-    applyUiConfigs(opts = {}) {
-      console.log("### applyUiConfigs", opts);
+    _applyUiConfigs(opts = {}) {
+      console.log("### _applyUiConfigs", opts);
       const { name, about, ui } = opts;
       this.$q.localStorage.set("nostrmarket.marketplaceConfig", {
         name,
@@ -909,11 +909,6 @@ export default defineComponent({
     },
 
     async createAccount(useExtension = false) {
-      let nip07;
-      if (useExtension) {
-        await this.getFromExtension();
-        nip07 = true;
-      }
       if (isValidKey(this.accountDialog.data.key, "nsec")) {
         let { key, watchOnly } = this.accountDialog.data;
         if (key.startsWith("n")) {
@@ -928,7 +923,7 @@ export default defineComponent({
           nsec: NostrTools.nip19.nsecEncode(key),
           npub: NostrTools.nip19.npubEncode(pubkey),
 
-          useExtension: nip07 ?? false,
+          useExtension: false,
         });
         this.accountDialog.data = {
           watchOnly: false,
@@ -943,11 +938,7 @@ export default defineComponent({
       this.accountDialog.data.key = NostrTools.generatePrivateKey();
       this.accountDialog.data.watchOnly = false;
     },
-    async getFromExtension() {
-      this.accountDialog.data.key = await window.nostr.getPublicKey();
-      this.accountDialog.data.watchOnly = true;
-      return;
-    },
+
     openAccountDialog() {
       this.accountDialog.show = true;
     },
@@ -958,24 +949,24 @@ export default defineComponent({
         ...this.config,
         opts: { ...this.config.opts, name, about, ui },
       };
-      this.applyUiConfigs(this.config?.opts);
+      this._applyUiConfigs(this.config?.opts);
     },
 
-    async toRelayKey(relayUrl) {
+    async _toRelayKey(relayUrl) {
       return "relay_" + (await hash(relayUrl));
     },
-    async loadRelaysData() {
+    async _loadRelaysData() {
       for (const market of this.markets) {
         for (const relayUrl of market.relays) {
-          await this.loadRelayData(relayUrl, market.opts.merchants);
+          await this._loadRelayData(relayUrl, market.opts.merchants);
         }
       }
 
-      Object.keys(this.relaysData).forEach(this.connectToRelay);
+      Object.keys(this.relaysData).forEach(this._connectToRelay);
     },
 
-    async loadRelayData(relayUrl, merchants) {
-      const relayKey = await this.toRelayKey(relayUrl);
+    async _loadRelayData(relayUrl, merchants) {
+      const relayKey = await this._toRelayKey(relayUrl);
       this.relaysData[relayKey] = this.relaysData[relayKey] || {
         relayUrl,
         connected: false,
@@ -987,7 +978,7 @@ export default defineComponent({
       relayData.merchants = [...new Set(relayData.merchants.concat(merchants))];
     },
 
-    async connectToRelay(relayKey) {
+    async _connectToRelay(relayKey) {
       const relayData = this.relaysData[relayKey];
       try {
         relayData.relay = NostrTools.relayInit(relayData.relayUrl);
@@ -1208,7 +1199,7 @@ export default defineComponent({
         market.opts = JSON.parse(event.content);
         this.config = { ...this.config, opts: market.opts };
 
-        this.applyUiConfigs(market?.opts);
+        this._applyUiConfigs(market?.opts);
 
         this.markets = this.markets.filter(
           (m) => m.d !== market.d || m.pubkey !== market.pubkey
@@ -1346,7 +1337,7 @@ export default defineComponent({
       });
     },
     async handleNewRelay(market, relayUrl) {
-      const relayKey = await this.toRelayKey(relayUrl);
+      const relayKey = await this._toRelayKey(relayUrl);
       if (this.relaysData[relayKey]) {
         console.log("### handleNewRelay exists");
         const relayData = this.relaysData[relayKey];
@@ -1367,8 +1358,8 @@ export default defineComponent({
         ];
         this.requeryRelay(relayKey);
       } else {
-        await this.loadRelayData(relayUrl, market.opts.merchants);
-        await this.connectToRelay(relayKey);
+        await this._loadRelayData(relayUrl, market.opts.merchants);
+        await this._connectToRelay(relayKey);
       }
     },
     handleRemoveMerchant(merchantPubkey) {
@@ -1403,7 +1394,7 @@ export default defineComponent({
       );
       if (!marketWitRelay) {
         // relay no longer exists
-        const relayKey = await this.toRelayKey(relayUrl);
+        const relayKey = await this._toRelayKey(relayUrl);
         this.relaysData[relayKey] = null;
         this.persistRelaysData();
       }
@@ -1557,7 +1548,7 @@ export default defineComponent({
 
     async publishEventToRelay(event, relayUrl) {
       try {
-        const relayKey = await this.toRelayKey(relayUrl);
+        const relayKey = await this._toRelayKey(relayUrl);
         const relayData = this.relaysData[relayKey];
         if (relayData?.connected) {
           await relayData.relay.publish(event);
