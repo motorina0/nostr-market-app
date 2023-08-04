@@ -1048,18 +1048,14 @@ export default defineComponent({
       console.log("### _queryRelay.events", relayData.relayUrl, events);
 
       if (events?.length) {
-        relayData.lastEventAt = events.sort(
-          (a, b) => b.created_at - a.created_at
-        )[0].created_at;
-
-        await this._processEvents(events, relayData.relayUrl);
+        await this._processEvents(events, relayData);
       }
 
       relayData.sub = relayData.relay.sub(filters);
       relayData.sub.on(
         "event",
         (event) => {
-          this._processEvents([event], relayData.relay.url);
+          this._processEvents([event], relayData);
         },
         { id: "masterSub" } //pass ID to cancel previous sub
       );
@@ -1099,23 +1095,27 @@ export default defineComponent({
     },
     /////////////////////////////////////////////////////////// PROCESS EVENTS ///////////////////////////////////////////////////////////
 
-    _processEvents(events, relayUrl) {
-      console.log("### _processEvents", relayUrl, events);
+    _processEvents(events, relayData) {
       if (!events?.length) return;
+      const lastEventAt = events.sort((a, b) => b.created_at - a.created_at)[0]
+        .created_at;
+      relayData.lastEventAt = Math.max(lastEventAt, relayData.lastEventAt);
+
       events = events
         .filter((e) => !this.processedEventIds.includes(e.id))
-        .map((e) => ({ ...e, relayUrl }))
+        .map((e) => ({ ...e, relayUrl: relayData.relayUrl }))
         .map(eventToObj);
 
       events.filter((e) => e.kind === 0).forEach(this._processProfileEvents);
       events.filter((e) => e.kind === 4).forEach(this._processDmEvents);
+      events.filter((e) => e.kind === 5).forEach(this._processDeleteEvents);
       events.filter((e) => e.kind === 30017).forEach(this._processStallEvents);
       events
         .filter((e) => e.kind === 30018)
         .forEach(this._processProductEvents);
 
-      console.log("### products: ", relayUrl, this.products);
-      console.log("### stalls: ", relayUrl, this.stalls);
+      console.log("### products: ", relayData.relayUrl, this.products);
+      console.log("### stalls: ", relayData.relayUrl, this.stalls);
       this._persistStallsAndProducts();
       this._persistRelaysData();
     },
@@ -1210,6 +1210,28 @@ export default defineComponent({
       this._persistDMEvent(e);
       const peerPubkey = isSentByMe ? receiverPubkey : e.pubkey;
       await this._handleIncommingDm(e, peerPubkey);
+    },
+
+    async _processDeleteEvents(e) {
+      const deletedEventIds = (e.tags || [])
+        .filter((t) => t[0] === "e")
+        .map((t) => t[1]);
+
+      const deletedStallsIds = this.stalls
+        .filter(
+          (s) => s.pubkey === e.pubkey && deletedEventIds.includes(s.eventId)
+        )
+        .map((s) => s.id);
+      this.products = this.products.filter(
+        (p) =>
+          p.pubkey === e.pubkey &&
+          !deletedEventIds.includes(p.eventId) &&
+          !deletedStallsIds.includes(p.stall_id)
+      );
+
+      this.stalls = this.stalls.filter(
+        (s) => s.pubkey === e.pubkey && !deletedEventIds.includes(s.eventId)
+      );
     },
 
     /////////////////////////////////////////////////////////// MARKET ///////////////////////////////////////////////////////////
@@ -1421,14 +1443,7 @@ export default defineComponent({
         const events = await relayData.relay.list([
           { kinds: [0, 30017, 30018], authors: [merchantPubkey] },
         ]);
-        if (events.length) {
-          const lastEventAt = events.sort(
-            (a, b) => b.created_at - a.created_at
-          )[0].created_at;
-
-          relayData.lastEventAt = Math.max(relayData.lastEventAt, lastEventAt);
-          await this._processEvents(events, relayData.relayUrl);
-        }
+        await this._processEvents(events, relayData);
 
         relayData.merchants.push(merchantPubkey);
         this._requeryRelay(relayKey);
@@ -1442,15 +1457,8 @@ export default defineComponent({
         const events = await relayData.relay.list([
           { kinds: [0, 30017, 30018], authors: market.opts.merchants },
         ]);
-        if (events.length) {
-          console.log("### new relay events", events.length);
-          const lastEventAt = events.sort(
-            (a, b) => b.created_at - a.created_at
-          )[0].created_at;
 
-          relayData.lastEventAt = Math.max(relayData.lastEventAt, lastEventAt);
-          await this._processEvents(events, relayData.relayUrl);
-        }
+        await this._processEvents(events, relayData);
         relayData.merchants = [
           ...new Set(relayData.merchants.concat(market.opts.merchants)),
         ];
