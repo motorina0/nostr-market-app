@@ -985,7 +985,7 @@ export default defineComponent({
         relayData.relay.on("connect", () => {
           relayData.connected = true;
           relayData.error = null;
-          this.queryRelay(relayKey);
+          this._queryRelay(relayKey);
         });
         relayData.relay.on("error", (error) => {
           console.warn(`Error by relay ${relayData.relayUrl}`);
@@ -1000,15 +1000,15 @@ export default defineComponent({
       }
     },
 
-    async requeryRelay(relayKey) {
+    async _requeryRelay(relayKey) {
       const relayData = this.relaysData[relayKey];
       if (relayData.connected) {
         relayData.sub?.unsub();
-        this.queryRelay(relayKey);
+        this._queryRelay(relayKey);
       }
     },
 
-    buildRelayFilters(relayData) {
+    _buildRelayFilters(relayData) {
       const authors = relayData.merchants;
       const filters = [
         {
@@ -1034,43 +1034,43 @@ export default defineComponent({
       return filters;
     },
 
-    async queryRelay(relayKey) {
+    async _queryRelay(relayKey) {
       const relayData = this.relaysData[relayKey];
-      const filters = this.buildRelayFilters(relayData);
+      const filters = this._buildRelayFilters(relayData);
 
       const events = await relayData.relay.list(filters);
-      console.log("### queryRelay.events", relayData.relayUrl, events);
+      console.log("### _queryRelay.events", relayData.relayUrl, events);
 
       if (events?.length) {
         relayData.lastEventAt = events.sort(
           (a, b) => b.created_at - a.created_at
         )[0].created_at;
 
-        await this.processEvents(events, relayData.relayUrl);
+        await this._processEvents(events, relayData.relayUrl);
       }
 
       relayData.sub = relayData.relay.sub(filters);
       relayData.sub.on(
         "event",
         (event) => {
-          this.processEvents([event], relayData.relay.url);
+          this._processEvents([event], relayData.relay.url);
         },
         { id: "masterSub" } //pass ID to cancel previous sub
       );
     },
 
-    processEvents(events, relayUrl) {
-      console.log("### processEvents", relayUrl, events);
+    _processEvents(events, relayUrl) {
+      console.log("### _processEvents", relayUrl, events);
       if (!events?.length) return;
       events = events
         .filter((e) => !this.processedEventIds.includes(e.id))
         .map((e) => ({ ...e, relayUrl }))
         .map(eventToObj);
 
-      events.filter((e) => e.kind === 0).forEach(this.processProfileEvents);
+      events.filter((e) => e.kind === 0).forEach(this._processProfileEvents);
       events.filter((e) => e.kind === 4).forEach(this.processDmEvents);
-      events.filter((e) => e.kind === 30017).forEach(this.processStallEvents);
-      events.filter((e) => e.kind === 30018).forEach(this.processProductEvents);
+      events.filter((e) => e.kind === 30017).forEach(this._processStallEvents);
+      events.filter((e) => e.kind === 30018).forEach(this._processProductEvents);
 
       console.log("### products: ", JSON.stringify(this.products));
       console.log("### stalls: ", this.stalls);
@@ -1078,7 +1078,7 @@ export default defineComponent({
       this.persistRelaysData();
     },
 
-    processProfileEvents(e) {
+    _processProfileEvents(e) {
       try {
         this.profiles = this.profiles.filter((p) => p.pubkey !== e.pubkey);
         this.profiles.push({ pubkey: e.pubkey, ...e.content });
@@ -1088,8 +1088,8 @@ export default defineComponent({
       }
     },
 
-    processStallEvents(e) {
-      this.processStall({
+    _processStallEvents(e) {
+      this._processStall({
         ...e.content,
         id: e.d,
         pubkey: e.pubkey,
@@ -1099,7 +1099,7 @@ export default defineComponent({
       });
     },
 
-    processStall(stall) {
+    _processStall(stall) {
       const stallIndex = this.stalls.findIndex(
         (s) => s.id === stall.id && s.pubkey === stall.pubkey
       );
@@ -1117,7 +1117,7 @@ export default defineComponent({
       }
     },
 
-    processProductEvents(e) {
+    _processProductEvents(e) {
       const p = { ...e.content };
       const stall = this.stalls.find((s) => s.id == p.stall_id);
 
@@ -1126,7 +1126,7 @@ export default defineComponent({
         p.formatedPrice = this.getAmountFormated(p.price, p.currency);
       }
 
-      this.processProduct({
+      this._processProduct({
         ...p,
         stallName: stall.name,
         images: p.images || [p.image],
@@ -1139,7 +1139,7 @@ export default defineComponent({
       });
     },
 
-    processProduct(product) {
+    _processProduct(product) {
       const productIndex = this.products.findIndex(
         (p) => p.id === product.id && p.pubkey === product.pubkey
       );
@@ -1329,11 +1329,11 @@ export default defineComponent({
           )[0].created_at;
 
           relayData.lastEventAt = Math.max(relayData.lastEventAt, lastEventAt);
-          await this.processEvents(events, relayData.relayUrl);
+          await this._processEvents(events, relayData.relayUrl);
         }
 
         relayData.merchants.push(merchantPubkey);
-        this.requeryRelay(relayKey);
+        this._requeryRelay(relayKey);
       });
     },
     async handleNewRelay(market, relayUrl) {
@@ -1351,12 +1351,12 @@ export default defineComponent({
           )[0].created_at;
 
           relayData.lastEventAt = Math.max(relayData.lastEventAt, lastEventAt);
-          await this.processEvents(events, relayData.relayUrl);
+          await this._processEvents(events, relayData.relayUrl);
         }
         relayData.merchants = [
           ...new Set(relayData.merchants.concat(market.opts.merchants)),
         ];
-        this.requeryRelay(relayKey);
+        this._requeryRelay(relayKey);
       } else {
         await this._loadRelayData(relayUrl, market.opts.merchants);
         await this._connectToRelay(relayKey);
@@ -1383,7 +1383,7 @@ export default defineComponent({
           (m) => m !== merchantPubkey
         );
 
-        this.requeryRelay(relayKey);
+        this._requeryRelay(relayKey);
       });
     },
     async handleRemovedRelay(relayUrl) {
