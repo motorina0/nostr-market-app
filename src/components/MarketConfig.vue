@@ -201,8 +201,8 @@
                 </q-input>
                 <q-list class="q-mt-md">
                   <q-item
-                    v-for="publicKey in marketData.opts.merchants"
-                    :key="publicKey"
+                    v-for="{ pubkey, profile } of merchants"
+                    :key="pubkey"
                   >
                     <q-item-section avatar>
                       <q-avatar>
@@ -217,14 +217,16 @@
                     </q-item-section>
                     <q-item-section class="q-mt-sm">
                       <q-item-label
-                        ><strong>{{ profile?.name }}</strong></q-item-label
+                        ><strong>{{
+                          profile?.name || profile?.display_name
+                        }}</strong></q-item-label
                       >
                       <q-item-label>
                         <div class="text-caption text-grey ellipsis-2-lines">
-                          <p>{{ publicKey }}</p>
+                          <p>{{ pubkey }}</p>
                         </div>
                       </q-item-label>
-                      <q-tooltip>{{ publicKey }}</q-tooltip>
+                      <q-tooltip>{{ pubkey }}</q-tooltip>
                     </q-item-section>
                     <q-item-section side>
                       <q-btn
@@ -233,7 +235,7 @@
                         dense
                         round
                         icon="delete"
-                        @click="removeMerchant(publicKey)"
+                        @click="removeMerchant(pubkey)"
                       />
                     </q-item-section>
                   </q-item>
@@ -324,7 +326,7 @@ import { defineComponent } from "vue";
 
 export default defineComponent({
   name: "EssentialLink",
-  props: ["market", "read-notes"],
+  props: ["market", "profiles", "read-notes"],
 
   data: function () {
     return {
@@ -332,6 +334,7 @@ export default defineComponent({
 
       merchantPubkey: null,
       relayUrl: null,
+      merchants: [],
       marketData: {
         pubkey: null,
         relays: [],
@@ -361,6 +364,7 @@ export default defineComponent({
       ],
     };
   },
+
   methods: {
     addMerchant: async function () {
       if (!isValidKey(this.merchantPubkey, "npub")) {
@@ -445,6 +449,10 @@ export default defineComponent({
     if (!this.readNotes?.merchants) {
       this.tab = "merchants";
     }
+    this.merchants = this.market.opts?.merchants.map((m) => ({
+      pubkey: m,
+      profile: this.profiles.find((p) => p.pubkey === m),
+    }));
   },
 });
 </script>

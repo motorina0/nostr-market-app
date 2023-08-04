@@ -304,6 +304,7 @@
     <market-config
       v-else-if="activeMarket && activePage === 'market-config'"
       :market="activeMarket"
+      :profiles="profiles"
       :read-notes="readNotes"
       @apply-ui="updateUiConfig"
       @market-update="updateMarket"
