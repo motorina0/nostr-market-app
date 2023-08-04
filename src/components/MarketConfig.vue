@@ -201,12 +201,12 @@
                 </q-input>
                 <q-list class="q-mt-md">
                   <q-item
-                    v-for="{ pubkey, profile } of merchants"
+                    v-for="pubkey of marketData.opts.merchants"
                     :key="pubkey"
                   >
                     <q-item-section avatar>
                       <q-avatar>
-                        <img v-if="profile?.picture" :src="profile.picture" />
+                        <img v-if="merchantProfile(pubkey)?.picture" :src="merchantProfile(pubkey).picture" />
                         <img
                           v-else
                           :src="
@@ -218,7 +218,7 @@
                     <q-item-section class="q-mt-sm">
                       <q-item-label
                         ><strong>{{
-                          profile?.name || profile?.display_name
+                          merchantProfile(pubkey)?.name || merchantProfile(pubkey)?.display_name
                         }}</strong></q-item-label
                       >
                       <q-item-label>
@@ -326,7 +326,7 @@ import { defineComponent } from "vue";
 
 export default defineComponent({
   name: "EssentialLink",
-  props: ["market", "profiles", "read-notes"],
+  props: ["market", "profiles", "relays-state", "read-notes"],
 
   data: function () {
     return {
@@ -334,7 +334,6 @@ export default defineComponent({
 
       merchantPubkey: null,
       relayUrl: null,
-      merchants: [],
       marketData: {
         pubkey: null,
         relays: [],
@@ -364,7 +363,6 @@ export default defineComponent({
       ],
     };
   },
-
   methods: {
     addMerchant: async function () {
       if (!isValidKey(this.merchantPubkey, "npub")) {
@@ -382,6 +380,7 @@ export default defineComponent({
       this.merchantPubkey = null;
     },
     removeMerchant: async function (publicKey) {
+      console.log("### removeMerchant", publicKey);
       this.marketData.opts.merchants = this.marketData.opts.merchants.filter(
         (m) => m !== publicKey
       );
@@ -421,9 +420,7 @@ export default defineComponent({
       this.updateMarketData();
     },
     updateMarketData: function () {
-      setTimeout(() => {
-        this.$emit("market-update", this.cloneMarketData());
-      });
+      this.$emit("market-update", this.cloneMarketData());
     },
     publishNaddr() {
       this.$emit("publish-naddr");
@@ -440,6 +437,9 @@ export default defineComponent({
     cloneMarketData() {
       return JSON.parse(JSON.stringify(this.marketData));
     },
+    merchantProfile(pubkey) {
+      return this.profiles?.find((p) => p.pubkey === pubkey);
+    },
   },
   created: async function () {
     this.marketData = {
@@ -449,10 +449,6 @@ export default defineComponent({
     if (!this.readNotes?.merchants) {
       this.tab = "merchants";
     }
-    this.merchants = this.market.opts?.merchants.map((m) => ({
-      pubkey: m,
-      profile: this.profiles?.find((p) => p.pubkey === m),
-    }));
   },
 });
 </script>
