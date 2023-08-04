@@ -565,7 +565,7 @@ export default defineComponent({
       relaysData: {},
       relaysState: {},
       markets: [],
-      merchants: [],
+
       shoppingCarts: [],
       checkoutCart: null,
       checkoutStall: null,
@@ -620,9 +620,6 @@ export default defineComponent({
         merchants: false,
         marketUi: false,
       },
-
-      // events
-      processedEventIds: [],
     };
   },
   watch: {
@@ -796,6 +793,13 @@ export default defineComponent({
     allRelays() {
       return [...new Set(this.markets.map((m) => m.relays).flat())];
     },
+    processedEventIds() {
+      const stallsEventIds = this.stalls.map((s) => s.eventId);
+      const productsEventIds = this.products.map((p) => p.eventId);
+      // todo: DMs
+
+      return stallsEventIds.concat(productsEventIds);
+    },
   },
 
   async created() {
@@ -826,27 +830,26 @@ export default defineComponent({
         }
         this.activeStall = stallId;
       }
-      if (
-        merchantPubkey &&
-        !this.merchants.find((m) => m.publicKey === merchantPubkey)
-      ) {
-        this.$q
-          .dialog(
-            confirm(
-              "We found a merchant pubkey in your request. Do you want to add it to the merchants list?"
-            )
-          )
-          .onOk(async () => {
-            this.merchants.push({ publicKey: merchantPubkey, profile: null });
-          });
-      }
+      // todo: support URL
+      // if (
+      //   merchantPubkey &&
+      //   !this.xmerchants.find((m) => m.publicKey === merchantPubkey)
+      // ) {
+      //   this.$q
+      //     .dialog(
+      //       confirm(
+      //         "We found a merchant pubkey in your request. Do you want to add it to the merchants list?"
+      //       )
+      //     )
+      //     .onOk(async () => {
+      //       this.xxmerchants.push({ publicKey: merchantPubkey, profile: null });
+      //     });
+      // }
     },
     restoreFromStorage() {
       this.markets = this.$q.localStorage.getItem("nostrmarket.markets") || [];
       this.allMarketsSelected = !this.markets.find((m) => !m.selected);
 
-      this.merchants =
-        this.$q.localStorage.getItem("nostrmarket.merchants") || [];
       this.shoppingCarts =
         this.$q.localStorage.getItem("nostrmarket.shoppingCarts") || [];
 
@@ -855,6 +858,10 @@ export default defineComponent({
 
       this.account =
         this.$q.localStorage.getItem("nostrmarket.account") || null;
+
+      this.stalls = this.$q.localStorage.getItem("nostrmarket.stalls") || [];
+      this.products =
+        this.$q.localStorage.getItem("nostrmarket.products") || [];
 
       const uiConfig = this.$q.localStorage.getItem(
         "nostrmarket.marketplaceConfig"
@@ -877,9 +884,6 @@ export default defineComponent({
         const pubkey = k.substring(prefix.length);
         this.orders[pubkey] = this.$q.localStorage.getItem(k);
       });
-
-      const relays = this.$q.localStorage.getItem("nostrmarket.relays");
-      this.relays = new Set(relays?.length ? relays : defaultRelays);
 
       const readNotes =
         this.$q.localStorage.getItem("nostrmarket.readNotes") || {};
@@ -966,7 +970,7 @@ export default defineComponent({
           await this.loadRelayData(relayUrl, market.opts.merchants);
         }
       }
-      console.log("### loadRelaysData", this.relaysData);
+
       Object.keys(this.relaysData).forEach(this.connectToRelay);
     },
 
@@ -1077,10 +1081,10 @@ export default defineComponent({
       events.filter((e) => e.kind === 30017).forEach(this.processStallEvents);
       events.filter((e) => e.kind === 30018).forEach(this.processProductEvents);
 
-      this.processedEventIds.push(...events.map((e) => e.id));
-
       console.log("### products: ", JSON.stringify(this.products));
       console.log("### stalls: ", this.stalls);
+      this.persistStallsAndProducts();
+      this.persistRelaysData();
     },
 
     processProfileEvents(e) {
@@ -1191,7 +1195,7 @@ export default defineComponent({
 
         // add relays to the set
         const pool = new NostrTools.SimplePool();
-        market.relays.forEach((r) => this.relays.add(r));
+
         const event = await pool.get(market.relays, {
           kinds: [30019],
           limit: 1,
@@ -1204,7 +1208,6 @@ export default defineComponent({
         market.opts = JSON.parse(event.content);
         this.config = { ...this.config, opts: market.opts };
 
-        this.addMerchants(market.opts?.merchants);
         this.applyUiConfigs(market?.opts);
 
         this.markets = this.markets.filter(
@@ -1279,16 +1282,6 @@ export default defineComponent({
       setTimeout(() => this.setActivePage(pageName), 100);
     },
 
-    addMerchants(publicKeys = []) {
-      const merchantsPubkeys = this.merchants.map((m) => m.publicKey);
-
-      const newMerchants = publicKeys
-        .filter((p) => merchantsPubkeys.indexOf(p) === -1)
-        .map((p) => ({ publicKey: p, profile: null }));
-      this.merchants.unshift(...newMerchants);
-      this.$q.localStorage.set("nostrmarket.merchants", this.merchants);
-    },
-
     updateMarket(market) {
       const { d, pubkey } = market;
 
@@ -1322,6 +1315,10 @@ export default defineComponent({
 
       newRelays.forEach((r) => this.handleNewRelay(market, r));
       removedRelays.forEach(this.handleRemovedRelay);
+
+      // stalls and products can be removed when a market is removed
+      this.persistStallsAndProducts();
+      this.persistRelaysData();
     },
 
     handleNewMerchant(market, merchantPubkey) {
@@ -1380,19 +1377,6 @@ export default defineComponent({
       // other markets still have this merchant
       if (marketWithMerchant) return;
 
-      const removedProductEventIds = this.products
-        .filter((p) => p.pubkey === merchantPubkey)
-        .map((p) => p.eventId);
-      const removedStallEventIds = this.stalls
-        .filter((s) => s.pubkey === merchantPubkey)
-        .map((s) => s.eventId);
-      const removedEventIds =
-        removedProductEventIds.concat(removedStallEventIds);
-      console.log("### removedEventIds", removedEventIds);
-      this.processedEventIds = this.processedEventIds.filter(
-        (id) => !removedEventIds.includes(id)
-      );
-
       // remove all products and stalls from that merchant
       this.products = this.products.filter((p) => p.pubkey !== merchantPubkey);
       this.stalls = this.stalls.filter((s) => s.pubkey !== merchantPubkey);
@@ -1448,9 +1432,7 @@ export default defineComponent({
         };
         this.shoppingCarts.push(stallCart);
       }
-      stallCart.merchant = this.merchants.find(
-        (m) => m.publicKey === item.pubkey
-      );
+      stallCart.merchant = item.pubkey;
 
       let product = stallCart.products.find((p) => p.id === item.id);
       if (!product) {
@@ -1653,6 +1635,21 @@ export default defineComponent({
       });
     },
 
+    persistStallsAndProducts() {
+      this.$q.localStorage.set("nostrmarket.stalls", this.stalls);
+      this.$q.localStorage.set("nostrmarket.products", this.products);
+    },
+
+    persistRelaysData() {
+      this.$q.localStorage.set(
+        "nostrmarket.relays",
+        Object.values(this.relaysData).map((relayData) => ({
+          lastEventAt: relayData.lastEventAt,
+          relayUrl: relayData.relayUrl,
+        }))
+      );
+    },
+
     persistDMEvent(event) {
       const dms = this.$q.localStorage.getItem(
         `nostrmarket.dm.${event.pubkey}`
@@ -1667,12 +1664,6 @@ export default defineComponent({
       dms.events.sort((a, b) => a - b);
       dms.lastCreatedAt = dms.events[dms.events.length - 1].created_at;
       this.$q.localStorage.set(`nostrmarket.dm.${event.pubkey}`, dms);
-    },
-
-    lastDmForPubkey(pubkey) {
-      const dms = this.$q.localStorage.getItem(`nostrmarket.dm.${pubkey}`);
-      if (!dms) return 0;
-      return dms.lastCreatedAt;
     },
 
     persistOrderUpdate(pubkey, eventCreatedAt, orderUpdate) {
@@ -1778,7 +1769,7 @@ export default defineComponent({
         return;
       }
 
-      const merchants = Array.from(this.merchants.map((m) => m.publicKey));
+      const merchants = []; // todo: get from market
       const { name, about, ui } = this.config?.opts || {};
       const content = { merchants, name, about, ui };
       const identifier = this.config.identifier ?? crypto.randomUUID();
@@ -1794,7 +1785,8 @@ export default defineComponent({
       try {
         event.sig = await NostrTools.signEvent(event, this.account.privkey);
 
-        const pub = this.pool.publish(Array.from(this.relays), event);
+        // todo: replace with market relays
+        const pub = this.pool.publish(Array.from([]), event);
         pub.on("ok", () => {
           console.debug(`Config event was sent`);
         });
@@ -1814,7 +1806,7 @@ export default defineComponent({
         pubkey: event.pubkey,
         kind: 30019,
         identifier: identifier,
-        relays: Array.from(this.relays),
+        relays: [], //todo: replace with market relays
       });
       this.copyText(naddr);
     },
@@ -1840,8 +1832,6 @@ export default defineComponent({
             .filter((key) => key !== "nostrmarket.account")
             .forEach((key) => window.localStorage.removeItem(key));
 
-          this.merchants = [];
-          this.relays = [];
           this.orders = [];
           this.config = { opts: null };
           this.shoppingCarts = [];
