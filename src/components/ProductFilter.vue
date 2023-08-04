@@ -217,9 +217,13 @@ export default defineComponent({
       ...JSON.parse(JSON.stringify(this.filter || {})),
     };
     this.filterData.categories = [
-      ...new Set((this.filterData.categories || []).concat(
-        (this.categories || []).filter((c) => c.selected).map((c) => c.category)
-      )),
+      ...new Set(
+        (this.filterData.categories || []).concat(
+          (this.categories || [])
+            .filter((c) => c.selected)
+            .map((c) => c.category)
+        )
+      ),
     ];
 
     this.filterData.merchants = (this.filterData.merchants || []).map(

@@ -451,7 +451,7 @@ export default defineComponent({
     }
     this.merchants = this.market.opts?.merchants.map((m) => ({
       pubkey: m,
-      profile: this.profiles.find((p) => p.pubkey === m),
+      profile: this.profiles?.find((p) => p.pubkey === m),
     }));
   },
 });

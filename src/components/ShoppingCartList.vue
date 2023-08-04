@@ -10,8 +10,14 @@
         <q-item>
           <q-item-section avatar>
             <q-avatar>
-              <img v-if="cart.merchant?.profile?.picture" :src="cart.merchant?.profile?.picture">
-              <img v-else  :src="$q.config.staticPath + '/images/blank-avatar.webp'">
+              <img
+                v-if="merchantProfile(cart.merchant)?.picture"
+                :src="merchantProfile(cart.merchant)?.picture"
+              />
+              <img
+                v-else
+                :src="$q.config.staticPath + '/images/blank-avatar.webp'"
+              />
             </q-avatar>
           </q-item-section>
 
@@ -26,7 +32,8 @@
               <span
                 class="ellipsis-2-lines text-wrap"
                 v-text="
-                  cart.merchant?.profile?.name || cart.merchant?.publicKey
+                  merchantProfile(cart.merchant)?.name ||
+                  cart.merchant?.publicKey
                 "
               ></span>
             </q-item-label>
@@ -48,8 +55,14 @@
               <q-item v-for="product in cart.products" :key="product.id">
                 <q-item-section avatar>
                   <q-avatar>
-                    <img v-if="product.images[0] || product.image" :src="product.images[0] || product.image" />
-                    <img v-else  :src="$q.config.staticPath + '/images/placeholder.png'" />
+                    <img
+                      v-if="product.images[0] || product.image"
+                      :src="product.images[0] || product.image"
+                    />
+                    <img
+                      v-else
+                      :src="$q.config.staticPath + '/images/placeholder.png'"
+                    />
                   </q-avatar>
                 </q-item-section>
                 <q-item-section class="q-mt-sm">
@@ -127,7 +140,7 @@ import { defineComponent } from "vue";
 
 export default defineComponent({
   name: "ShoppingCartList",
-  props: ["carts"],
+  props: ["carts", "profiles"],
   data: function () {
     return {};
   },
@@ -152,6 +165,9 @@ export default defineComponent({
     },
     proceedToCheckout: function (cart) {
       this.$emit("checkout-cart", cart);
+    },
+    merchantProfile(pubkey) {
+      return this.profiles?.find((p) => p.pubkey === pubkey);
     },
   },
   created() {},

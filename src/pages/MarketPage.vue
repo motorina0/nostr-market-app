@@ -327,6 +327,7 @@
     <shopping-cart-list
       v-else-if="activePage === 'shopping-cart-list'"
       :carts="shoppingCarts"
+      :profiles="profiles"
       @add-to-cart="addProductToCart"
       @remove-from-cart="removeProductFromCart"
       @remove-cart="removeCart"
@@ -338,6 +339,7 @@
       :cart="checkoutCart"
       :stall="checkoutStall"
       :customer-pubkey="account?.pubkey"
+      :profiles="profiles"
       @login-required="openAccountDialog"
       @place-order="placeOrder"
       @change-page="navigateTo"
