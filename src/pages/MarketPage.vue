@@ -347,7 +347,6 @@
       :orders="orders"
       :products="products"
       :stalls="stalls"
-
       @show-invoice="showInvoiceQr"
     ></customer-orders>
     <!-- todo: :merchants="merchants" -->
@@ -1141,7 +1140,7 @@ export default defineComponent({
         .filter((e) => e.kind === 30018)
         .forEach(this._processProductEvents);
 
-      console.log("### products: ", JSON.stringify(this.products));
+      console.log("### products: ", this.products);
       console.log("### stalls: ", this.stalls);
       this._persistStallsAndProducts();
       this._persistRelaysData();
@@ -1257,6 +1256,7 @@ export default defineComponent({
       if (!naddr) return;
 
       try {
+        this.setActivePage("loading")
         const { type, data } = NostrTools.nip19.decode(naddr);
         if (type !== "naddr" || data.kind !== 30019) return; // just double check
 
@@ -1289,69 +1289,90 @@ export default defineComponent({
         );
         this.markets.unshift(market);
         this.$q.localStorage.set("nostrmarket.markets", this.markets);
-        // todo: add relays and merchants
+
+        for (const relayUrl of market.relays) {
+          await this._handleNewRelay(relayUrl, market);
+        }
       } catch (error) {
         console.warn(error);
+      } finally {
+        this.setActivePage("market")
       }
     },
     updateMarket(market) {
-      const { d, pubkey } = market;
+      try {
+        this.isLoading = true;
 
-      const existingMarket =
-        this.markets.find((m) => m.d === d && m.pubkey === pubkey) || {};
+        const { d, pubkey } = market;
 
-      const newMerchants = market.opts?.merchants.filter(
-        (m) => !existingMarket.opts?.merchants.includes(m)
-      );
-      const removedMerchants = existingMarket.opts?.merchants.filter(
-        (m) => !market.opts?.merchants.includes(m)
-      );
-      const newRelays = market.relays.filter(
-        (r) => !existingMarket.relays.includes(r)
-      );
-      const removedRelays = existingMarket.relays.filter(
-        (r) => !market.relays.includes(r)
-      );
+        const existingMarket =
+          this.markets.find((m) => m.d === d && m.pubkey === pubkey) || {};
 
-      this.markets = this.markets.filter(
-        (m) => m.d !== d || m.pubkey !== pubkey
-      );
-      this.markets.unshift(market);
-      this.$q.localStorage.set("nostrmarket.markets", this.markets);
+        const newMerchants = market.opts?.merchants.filter(
+          (m) => !existingMarket.opts?.merchants.includes(m)
+        );
+        const removedMerchants = existingMarket.opts?.merchants.filter(
+          (m) => !market.opts?.merchants.includes(m)
+        );
+        const newRelays = market.relays.filter(
+          (r) => !existingMarket.relays.includes(r)
+        );
+        const removedRelays = existingMarket.relays.filter(
+          (r) => !market.relays.includes(r)
+        );
 
-      removedMerchants.forEach(this._handleRemoveMerchant);
-      newMerchants.forEach((m) => this._handleNewMerchant(market, m));
+        this.markets = this.markets.filter(
+          (m) => m.d !== d || m.pubkey !== pubkey
+        );
+        this.markets.unshift(market);
+        this.$q.localStorage.set("nostrmarket.markets", this.markets);
 
-      console.log("### newRelays", newRelays);
-      console.log("### removedRelays", removedRelays);
+        removedMerchants.forEach(this._handleRemoveMerchant);
+        newMerchants.forEach((m) => this._handleNewMerchant(market, m));
 
-      newRelays.forEach((r) => this._handleNewRelay(market, r));
-      removedRelays.forEach(this._handleRemovedRelay);
+        console.log("### newRelays", newRelays);
+        console.log("### removedRelays", removedRelays);
 
-      // stalls and products can be removed when a market is updated
-      this._persistStallsAndProducts();
-      this._persistRelaysData();
+        newRelays.forEach((r) => this._handleNewRelay(r, market));
+        removedRelays.forEach(this._handleRemovedRelay);
+
+        // stalls and products can be removed when a market is updated
+        this._persistStallsAndProducts();
+        this._persistRelaysData();
+      } catch (error) {
+        console.warn(error);
+      } finally {
+        this.isLoading = false;
+      }
     },
     deleteMarket(market) {
-      const { d, pubkey } = market;
-      this.markets = this.markets.filter(
-        (m) => m.d !== d || m.pubkey !== pubkey
-      );
-      this.$q.localStorage.set("nostrmarket.markets", this.markets);
-      if (
-        this.activeMarket &&
-        this.activeMarket.d === d &&
-        this.activeMarket.pubkey === pubkey
-      ) {
-        this.activeMarket = null;
-        this.navigateTo("market");
-        this.updateUiConfig(this.markets[0]);
-      }
-      market.opts.merchants.forEach(this._handleRemoveMerchant);
-      market.relays.forEach(this._handleRemovedRelay);
+      try {
+        this.isLoading = true;
 
-      this._persistStallsAndProducts();
-      this._persistRelaysData();
+        const { d, pubkey } = market;
+        this.markets = this.markets.filter(
+          (m) => m.d !== d || m.pubkey !== pubkey
+        );
+        this.$q.localStorage.set("nostrmarket.markets", this.markets);
+        if (
+          this.activeMarket &&
+          this.activeMarket.d === d &&
+          this.activeMarket.pubkey === pubkey
+        ) {
+          this.activeMarket = null;
+          this.navigateTo("market");
+          this.updateUiConfig(this.markets[0]);
+        }
+        market.opts.merchants.forEach(this._handleRemoveMerchant);
+        market.relays.forEach(this._handleRemovedRelay);
+
+        this._persistStallsAndProducts();
+        this._persistRelaysData();
+      } catch (error) {
+        console.warn(error);
+      } finally {
+        this.isLoading = false;
+      }
     },
     toggleMarket() {
       this.allMarketsSelected = !this.markets.find((m) => !m.selected);
@@ -1440,7 +1461,7 @@ export default defineComponent({
       });
     },
 
-    async _handleNewRelay(market, relayUrl) {
+    async _handleNewRelay(relayUrl, market) {
       const relayKey = await this._toRelayKey(relayUrl);
       if (this.relaysData[relayKey]) {
         const relayData = this.relaysData[relayKey];
