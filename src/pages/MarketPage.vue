@@ -1004,10 +1004,18 @@ export default defineComponent({
         connected: false,
         error: null,
         merchants: [],
-        lastEventAt: 0,
+        lastEventAt: this.getLastEventDateForRelay(relayUrl),
       };
       const relayData = this.relaysData[relayKey];
       relayData.merchants = [...new Set(relayData.merchants.concat(merchants))];
+    },
+
+    getLastEventDateForRelay(relayUrl) {
+      const relay = (
+        this.$q.localStorage.getItem("nostrmarket.relays") || []
+      ).find((r) => r.relayUrl === relayUrl);
+      console.log("### getLastEventForRelay", relayUrl, relay);
+      return relay?.lastEventAt || 0;
     },
 
     async _connectToRelay(relayKey) {
@@ -1140,8 +1148,8 @@ export default defineComponent({
         .filter((e) => e.kind === 30018)
         .forEach(this._processProductEvents);
 
-      console.log("### products: ", this.products);
-      console.log("### stalls: ", this.stalls);
+      console.log("### products: ", relayUrl, this.products);
+      console.log("### stalls: ", relayUrl, this.stalls);
       this._persistStallsAndProducts();
       this._persistRelaysData();
     },
@@ -1256,7 +1264,7 @@ export default defineComponent({
       if (!naddr) return;
 
       try {
-        this.setActivePage("loading")
+        this.setActivePage("loading");
         const { type, data } = NostrTools.nip19.decode(naddr);
         if (type !== "naddr" || data.kind !== 30019) return; // just double check
 
@@ -1296,7 +1304,7 @@ export default defineComponent({
       } catch (error) {
         console.warn(error);
       } finally {
-        this.setActivePage("market")
+        this.setActivePage("market");
       }
     },
     updateMarket(market) {
