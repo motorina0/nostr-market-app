@@ -805,8 +805,8 @@ export default defineComponent({
     },
     activeMarketRelaysData() {
       if (!this.activeMarket) return [];
-      return Object.values(this.relaysData).filter((r) =>
-        this.activeMarket.relays.includes(r.relayUrl)
+      return Object.values(this.relaysData).filter(
+        (r) => r && this.activeMarket.relays.includes(r.relayUrl)
       );
     },
   },
@@ -1323,14 +1323,14 @@ export default defineComponent({
         this.markets.unshift(market);
         this.$q.localStorage.set("nostrmarket.markets", this.markets);
 
-        removedMerchants.forEach(this._handleRemoveMerchant);
-        newMerchants.forEach((m) => this._handleNewMerchant(market, m));
+        removedMerchants?.forEach(this._handleRemoveMerchant);
+        newMerchants?.forEach((m) => this._handleNewMerchant(market, m));
 
         console.log("### newRelays", newRelays);
         console.log("### removedRelays", removedRelays);
 
-        newRelays.forEach((r) => this._handleNewRelay(r, market));
-        removedRelays.forEach(this._handleRemovedRelay);
+        newRelays?.forEach((r) => this._handleNewRelay(r, market));
+        removedRelays?.forEach(this._handleRemovedRelay);
 
         // stalls and products can be removed when a market is updated
         this._persistStallsAndProducts();
