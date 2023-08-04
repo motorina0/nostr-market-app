@@ -305,6 +305,7 @@
       v-else-if="activeMarket && activePage === 'market-config'"
       :market="activeMarket"
       :profiles="profiles"
+      :relays-data="activeMarketRelaysData"
       :read-notes="readNotes"
       @apply-ui="updateUiConfig"
       @market-update="updateMarket"
@@ -566,7 +567,6 @@ export default defineComponent({
       },
 
       relaysData: {},
-      relaysState: {},
       markets: [],
 
       shoppingCarts: [],
@@ -802,6 +802,12 @@ export default defineComponent({
       // todo: DMs
 
       return stallsEventIds.concat(productsEventIds);
+    },
+    activeMarketRelaysData() {
+      if (!this.activeMarket) return [];
+      return Object.values(this.relaysData).filter((r) =>
+        this.activeMarket.relays.includes(r.relayUrl)
+      );
     },
   },
 

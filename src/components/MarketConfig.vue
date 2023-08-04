@@ -206,7 +206,10 @@
                   >
                     <q-item-section avatar>
                       <q-avatar>
-                        <img v-if="merchantProfile(pubkey)?.picture" :src="merchantProfile(pubkey).picture" />
+                        <img
+                          v-if="merchantProfile(pubkey)?.picture"
+                          :src="merchantProfile(pubkey).picture"
+                        />
                         <img
                           v-else
                           :src="
@@ -218,7 +221,8 @@
                     <q-item-section class="q-mt-sm">
                       <q-item-label
                         ><strong>{{
-                          merchantProfile(pubkey)?.name || merchantProfile(pubkey)?.display_name
+                          merchantProfile(pubkey)?.name ||
+                          merchantProfile(pubkey)?.display_name
                         }}</strong></q-item-label
                       >
                       <q-item-label>
@@ -259,14 +263,31 @@
                     <q-item v-for="relay in marketData.relays" :key="relay">
                       <q-item-section avatar>
                         <q-avatar>
-                          <q-icon name="router"></q-icon>
+                          <q-icon
+                            name="router"
+                            :color="
+                              relayData(relay).connected ? 'green' : 'pink'
+                            "
+                          ></q-icon>
                         </q-avatar>
                       </q-item-section>
                       <q-item-section class="q-mt-sm">
                         <q-item-label
-                          ><strong>{{ relay }}</strong></q-item-label
-                        >
+                          ><strong>{{ relay }}</strong>
+                          <div
+                            v-if="relayData(relay).error"
+                            class="text-caption text-grey ellipsis-2-lines"
+                          >
+                            <p>Error: {{ relayData(relay).error }}</p>
+                          </div>
+                        </q-item-label>
                       </q-item-section>
+                      <!-- <q-item-label caption>
+                        <span
+                          class="ellipsis-2-lines text-wrap"
+                          v-text="relayData(relay).error"
+                        ></span>
+                      </q-item-label> -->
                       <q-item-section side>
                         <q-btn
                           size="12px"
@@ -326,7 +347,7 @@ import { defineComponent } from "vue";
 
 export default defineComponent({
   name: "EssentialLink",
-  props: ["market", "profiles", "relays-state", "read-notes"],
+  props: ["market", "profiles", "relays-data", "read-notes"],
 
   data: function () {
     return {
@@ -440,6 +461,14 @@ export default defineComponent({
     merchantProfile(pubkey) {
       return this.profiles?.find((p) => p.pubkey === pubkey);
     },
+    relayData(relayUrl) {
+      return (
+        (this.relaysData || []).find((r) => r.relayUrl === relayUrl) || {
+          connected: false,
+          error: null,
+        }
+      );
+    },
   },
   created: async function () {
     this.marketData = {
@@ -449,6 +478,7 @@ export default defineComponent({
     if (!this.readNotes?.merchants) {
       this.tab = "merchants";
     }
+    console.log("### relaysData", this.relaysData);
   },
 });
 </script>
