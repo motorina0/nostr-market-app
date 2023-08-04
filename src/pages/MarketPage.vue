@@ -846,49 +846,6 @@ export default defineComponent({
       //     });
       // }
     },
-    _restoreFromStorage() {
-      this.markets = this.$q.localStorage.getItem("nostrmarket.markets") || [];
-      this.allMarketsSelected = !this.markets.find((m) => !m.selected);
-
-      this.shoppingCarts =
-        this.$q.localStorage.getItem("nostrmarket.shoppingCarts") || [];
-
-      this.profiles =
-        this.$q.localStorage.getItem("nostrmarket.profiles") || [];
-
-      this.account =
-        this.$q.localStorage.getItem("nostrmarket.account") || null;
-
-      this.stalls = this.$q.localStorage.getItem("nostrmarket.stalls") || [];
-      this.products =
-        this.$q.localStorage.getItem("nostrmarket.products") || [];
-
-      const uiConfig = this.$q.localStorage.getItem(
-        "nostrmarket.marketplaceConfig"
-      ) || {
-        ui: { darkMode: false },
-      };
-
-      // trigger the `watch` logic
-      this.config = {
-        ...this.config,
-        opts: { ...this.config.opts, ...uiConfig },
-      };
-      this._applyUiConfigs(this.config.opts);
-
-      const prefix = "nostrmarket.orders.";
-      const orderKeys = this.$q.localStorage
-        .getAllKeys()
-        .filter((k) => k.startsWith(prefix));
-      orderKeys.forEach((k) => {
-        const pubkey = k.substring(prefix.length);
-        this.orders[pubkey] = this.$q.localStorage.getItem(k);
-      });
-
-      const readNotes =
-        this.$q.localStorage.getItem("nostrmarket.readNotes") || {};
-      this.readNotes = { ...this.readNotes, ...readNotes };
-    },
     _applyUiConfigs(opts = {}) {
       console.log("### _applyUiConfigs", opts);
       const { name, about, ui } = opts;
@@ -1719,6 +1676,49 @@ export default defineComponent({
 
     /////////////////////////////////////////////////////////// PERSIST ///////////////////////////////////////////////////////////
 
+    _restoreFromStorage() {
+      this.markets = this.$q.localStorage.getItem("nostrmarket.markets") || [];
+      this.allMarketsSelected = !this.markets.find((m) => !m.selected);
+
+      this.shoppingCarts =
+        this.$q.localStorage.getItem("nostrmarket.shoppingCarts") || [];
+
+      this.profiles =
+        this.$q.localStorage.getItem("nostrmarket.profiles") || [];
+
+      this.account =
+        this.$q.localStorage.getItem("nostrmarket.account") || null;
+
+      this.stalls = this.$q.localStorage.getItem("nostrmarket.stalls") || [];
+      this.products =
+        this.$q.localStorage.getItem("nostrmarket.products") || [];
+
+      const uiConfig = this.$q.localStorage.getItem(
+        "nostrmarket.marketplaceConfig"
+      ) || {
+        ui: { darkMode: false },
+      };
+
+      // trigger the `watch` logic
+      this.config = {
+        ...this.config,
+        opts: { ...this.config.opts, ...uiConfig },
+      };
+      this._applyUiConfigs(this.config.opts);
+
+      const prefix = "nostrmarket.orders.";
+      const orderKeys = this.$q.localStorage
+        .getAllKeys()
+        .filter((k) => k.startsWith(prefix));
+      orderKeys.forEach((k) => {
+        const pubkey = k.substring(prefix.length);
+        this.orders[pubkey] = this.$q.localStorage.getItem(k);
+      });
+
+      const readNotes =
+        this.$q.localStorage.getItem("nostrmarket.readNotes") || {};
+      this.readNotes = { ...this.readNotes, ...readNotes };
+    },
     _persistStallsAndProducts() {
       this.$q.localStorage.set("nostrmarket.stalls", this.stalls);
       this.$q.localStorage.set("nostrmarket.products", this.products);
