@@ -1248,16 +1248,32 @@ export default defineComponent({
 
     /////////////////////////////////////////////////////////// MARKET ///////////////////////////////////////////////////////////
 
-    createMarket(navigateToConfig) {
-      this.markets.unshift({
-        d: crypto.randomUUID(),
-        pubkey: this.account?.pubkey || "",
-        relays: [],
-        selected: true,
-      });
-      this.$q.localStorage.set("nostrmarket.markets", this.markets);
-      if (navigateToConfig === true) {
-        this.showMarketConfig(0);
+    async createMarket(navigateToConfig) {
+      try {
+        this.setActivePage("loading");
+        const market = {
+          d: crypto.randomUUID(),
+          pubkey: this.account?.pubkey || "",
+          relays: [...defaultRelays],
+          selected: true,
+          opts: {
+            name: "New Market",
+            merchants: [],
+          },
+        };
+        this.markets.unshift(market);
+        this.$q.localStorage.set("nostrmarket.markets", this.markets);
+
+        for (const relayUrl of market.relays) {
+          await this._handleNewRelay(relayUrl, market);
+        }
+        if (navigateToConfig === true) {
+          this.showMarketConfig(0);
+        }
+      } catch (error) {
+        console.warn(error);
+      } finally {
+        this.setActivePage("market-config");
       }
     },
     async addMarket(naddr) {
