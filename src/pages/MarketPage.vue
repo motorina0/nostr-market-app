@@ -1222,12 +1222,12 @@ export default defineComponent({
           (s) => s.pubkey === e.pubkey && deletedEventIds.includes(s.eventId)
         )
         .map((s) => s.id);
-      this.products = this.products.filter(
-        (p) =>
-          p.pubkey === e.pubkey &&
-          !deletedEventIds.includes(p.eventId) &&
-          !deletedStallsIds.includes(p.stall_id)
-      );
+
+      const isDeletedProduct = (p) =>
+        p.pubkey === e.pubkey &&
+        (deletedEventIds.includes(p.eventId) ||
+          deletedStallsIds.includes(p.stall_id));
+      this.products = this.products.filter((p) => !isDeletedProduct(p));
 
       this.stalls = this.stalls.filter(
         (s) => s.pubkey === e.pubkey && !deletedEventIds.includes(s.eventId)
@@ -1501,7 +1501,7 @@ export default defineComponent({
       if (!marketWitRelay) {
         // relay no longer exists
         const relayKey = await this._toRelayKey(relayUrl);
-        delete this.relaysData[relayKey]
+        delete this.relaysData[relayKey];
         this._persistRelaysData();
       }
     },
