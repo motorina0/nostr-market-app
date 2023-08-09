@@ -1097,6 +1097,7 @@ export default defineComponent({
 
     _processEvents(events, relayData) {
       if (!events?.length) return;
+      console.log("### _processEvents", relayData.relayUrl, events);
       const lastEventAt = events.sort((a, b) => b.created_at - a.created_at)[0]
         .created_at;
       relayData.lastEventAt = Math.max(lastEventAt, relayData.lastEventAt);
@@ -1114,8 +1115,6 @@ export default defineComponent({
         .filter((e) => e.kind === 30018)
         .forEach(this._processProductEvents);
 
-      console.log("### products: ", relayData.relayUrl, this.products);
-      console.log("### stalls: ", relayData.relayUrl, this.stalls);
       this._persistStallsAndProducts();
       this._persistRelaysData();
     },
@@ -1135,7 +1134,7 @@ export default defineComponent({
         ...e.content,
         id: e.d,
         pubkey: e.pubkey,
-        createAt: e.created_at,
+        createdAt: e.created_at,
         eventId: e.id,
         relayUrls: [e.relayUrl],
       });
@@ -1154,8 +1153,12 @@ export default defineComponent({
       existingStall.relayUrls = [
         ...new Set(stall.relayUrls.concat(existingStall.relayUrls)),
       ];
+
       if (existingStall.createdAt < stall.createdAt) {
         this.stalls.splice(stallIndex, 1, stall);
+        this.products
+          .filter((p) => p.pubkey === stall.pubkey && p.stall_id === stall.id)
+          .forEach(p => p.stallName = stall.name);
       }
     },
 
