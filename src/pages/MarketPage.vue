@@ -358,7 +358,7 @@
     <customer-stall
       v-else-if="activePage === 'customer-stall'"
       :stall="stalls.find((stall) => stall.id == activeStall)"
-      :products="filterProducts"
+      :products="filteredProducts"
       :product-detail="activeProduct"
       @change-page="navigateTo"
       @add-to-cart="addProductToCart"
@@ -451,7 +451,7 @@
 
       <customer-market
         v-else
-        :filtered-products="filterProducts"
+        :filtered-products="filteredProducts"
         :search-text="searchText"
         :filter-categories="filterData.categories"
         @change-page="navigateTo"
@@ -669,10 +669,22 @@ export default defineComponent({
     },
   },
   computed: {
-    filterProducts() {
+    selectedMarketsMerchants() {
+      return [
+        ...new Set(
+          this.markets
+            .filter((m) => m.selected)
+            .map((m) => m.opts.merchants)
+            .flat()
+        ),
+      ];
+    },
+    filteredProducts() {
       const isByMerchat = (pubkey) =>
         !this.filterData.merchants?.length ||
         this.filterData.merchants.includes(pubkey);
+      const isInMarket = (pubkey) =>
+        this.selectedMarketsMerchants.includes(pubkey);
       const isInStall = (stallId) =>
         !this.filterData.stalls?.length ||
         this.filterData.stalls.includes(stallId);
@@ -691,6 +703,7 @@ export default defineComponent({
           this.hasCategory(p.categories) &&
           isInActiceStall(p.stall_id) &&
           isByMerchat(p.pubkey) &&
+          isInMarket(p.pubkey) &&
           isInStall(p.stall_id) &&
           hasCurrency(p.currency) &&
           hasPriceFrom(p.price) &&
