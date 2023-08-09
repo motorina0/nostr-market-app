@@ -661,8 +661,8 @@ export default defineComponent({
           this.$q
             .dialog(confirm("Do you want to import this market profile?"))
             .onOk(async () => {
-              await this.addMarket(n);
               this.searchText = "";
+              await this.addMarket(n);
             });
         } catch {}
       }
@@ -856,7 +856,6 @@ export default defineComponent({
       // }
     },
     _applyUiConfigs(opts = {}) {
-      console.log("### _applyUiConfigs", opts);
       const { name, about, ui } = opts;
       this.$q.localStorage.set("nostrmarket.marketplaceConfig", {
         name,
@@ -1155,7 +1154,7 @@ export default defineComponent({
         this.stalls.splice(stallIndex, 1, stall);
         this.products
           .filter((p) => p.pubkey === stall.pubkey && p.stall_id === stall.id)
-          .forEach(p => p.stallName = stall.name);
+          .forEach((p) => (p.stallName = stall.name));
       }
     },
 
@@ -1263,9 +1262,7 @@ export default defineComponent({
           selected: true,
         };
 
-        // add relays to the set
         const pool = new NostrTools.SimplePool();
-
         const event = await pool.get(market.relays, {
           kinds: [30019],
           limit: 1,
@@ -1275,10 +1272,19 @@ export default defineComponent({
 
         if (!event) return;
 
-        market.opts = JSON.parse(event.content);
-        this.config = { ...this.config, opts: market.opts };
-
-        this._applyUiConfigs(market?.opts);
+        if (isJson(event.content)) {
+          market.opts = JSON.parse(event.content);
+          this.$q
+            .dialog(
+              confirm(
+                `Do you want to use the look and feel of the '${market.opts.name}' market?`
+              )
+            )
+            .onOk(async () => {
+              this.config = { ...this.config, opts: market.opts };
+              this._applyUiConfigs(market?.opts);
+            });
+        }
 
         this.markets = this.markets.filter(
           (m) => m.d !== market.d || m.pubkey !== market.pubkey
@@ -1721,6 +1727,7 @@ export default defineComponent({
         ...this.config,
         opts: { ...this.config.opts, ...uiConfig },
       };
+
       this._applyUiConfigs(this.config.opts);
 
       const prefix = "nostrmarket.orders.";
