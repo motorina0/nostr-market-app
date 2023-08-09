@@ -1229,9 +1229,9 @@ export default defineComponent({
           deletedStallsIds.includes(p.stall_id));
       this.products = this.products.filter((p) => !isDeletedProduct(p));
 
-      this.stalls = this.stalls.filter(
-        (s) => s.pubkey === e.pubkey && !deletedEventIds.includes(s.eventId)
-      );
+      const isDeletedStall = (s) =>
+        s.pubkey === e.pubkey && deletedEventIds.includes(s.eventId);
+      this.stalls = this.stalls.filter((s) => !isDeletedStall(s));
     },
 
     /////////////////////////////////////////////////////////// MARKET ///////////////////////////////////////////////////////////
