@@ -1150,9 +1150,6 @@ export default defineComponent({
       }
 
       const existingStall = this.stalls[stallIndex];
-      existingStall.relayUrls = [
-        ...new Set(stall.relayUrls.concat(existingStall.relayUrls)),
-      ];
 
       if (existingStall.createdAt < stall.createdAt) {
         this.stalls.splice(stallIndex, 1, stall);
